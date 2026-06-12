@@ -42,8 +42,8 @@ ok "Venv activé  ($(python --version 2>&1))"
 # ─────────────────────────────────────────────────────────────────
 banner "Installation des paquets"
 
-echo -e "  ${D}→${N}  p pip install pygame ..."
-p pip install pygame -q && ok "pygame installé" || { warn "pygame — échec" ; ERRORS=$((ERRORS+1)); }
+echo -e "  ${D}→${N}  pip install pygame ..."
+pip install pygame -q && ok "pygame installé" || { warn "pygame — échec" ; ERRORS=$((ERRORS+1)); }
 
 # ─────────────────────────────────────────────────────────────────
 # 3. Vérification des fichiers
