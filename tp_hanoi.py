@@ -11,8 +11,8 @@ sys.path.insert(0, BASE_DIR)
 PORT      = 5678
 NUM_DISKS = 3
 
-# État serveur : ex3 validé ou non — repart à zéro à chaque démarrage du serveur
-_server_state = {"ex3_unlocked": False, "ex4_unlocked": False}
+# La progression (ex3/ex4 débloqués) est désormais persistée par élève
+# dans progress.json — voir tp/progress.py.
 
 from tp.server import ThreadingHTTPServer, Handler
 
