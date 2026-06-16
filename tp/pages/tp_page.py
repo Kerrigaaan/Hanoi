@@ -662,6 +662,7 @@ ic { display: inline;
   <button type="button" class="tab-btn active" id="tab-accueil"   onclick="switchTab('accueil')">Accueil</button>
   <button type="button" class="tab-btn" id="tab-exercises" onclick="switchTab('exercises')">Exercices</button>
   <button type="button" class="tab-btn" id="tab-docs"      onclick="switchTab('docs')">Documentation Python</button>
+  <button type="button" class="tab-btn fun-tab hidden" id="tab-fun" onclick="switchTab('fun')">🎉 Défis Fun</button>
 </div>
 
 <!-- panneau accueil -->
@@ -1384,6 +1385,9 @@ async function launchEx(id) {
       ex4_run = true;
       triggerUnlockByKey('ex4_run');
       setStatus('ok', '✅ Exercice 4 validé ! Tu peux passer au 5.');
+    } else if (id === 'ex5') {
+      revealFunTab();
+      setStatus('ok', '🎉 Exercice 5 réussi ! L\\'onglet « Défis Fun » est débloqué !');
     } else {
       setStatus('ok', '✅ Jeu lancé avec succès !');
     }
