@@ -46,10 +46,14 @@ class HanoiScene:
                  is_game_over: IsGameOver,
                  move_generator: MoveGenerator,
                  disk_height: float = MIN_DISK_HEIGHT, pole_width: float = MIN_POLE_WIDTH,
-                 stand_height: float = MIN_STAND_HEIGHT, num_disks: int = MIN_DISK_COUNT):
+                 stand_height: float = MIN_STAND_HEIGHT, num_disks: int = MIN_DISK_COUNT,
+                 win_pole: Optional[str] = None):
         self._is_move_valid  = is_move_valid
         self._is_game_over   = is_game_over
         self._move_generator = move_generator
+        # Si défini (ex. 'C'), la victoire n'est acceptée que si tous les disques
+        # sont sur ce poteau — peu importe ce que retourne is_game_over de l'élève.
+        self._win_pole       = win_pole
         self._disk_height    = disk_height
         self._pole_width     = pole_width
         self._stand_height   = stand_height
@@ -218,7 +222,14 @@ class HanoiScene:
                         # a été joué — empêche un is_game_over() qui retourne True en
                         # permanence de tricher
                         min_moves = 2 ** self._num_disk - 1
-                        if self._is_game_over(self._poles) and game['num_plays'] >= min_moves:
+                        # En version stricte (ex. 4 et 5), la tour doit être sur le
+                        # poteau imposé (C). On n'accepte donc pas une victoire sur B,
+                        # même si is_game_over() de l'élève la considère comme finie.
+                        on_win_pole = (self._win_pole is None
+                                       or self._poles[self._win_pole].num_disks == self._num_disk)
+                        if (self._is_game_over(self._poles)
+                                and game['num_plays'] >= min_moves
+                                and on_win_pole):
                             game['state']            = 'win'
                             game['background_color'] = Color(179, 255, 179)
 
