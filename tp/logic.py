@@ -27,8 +27,25 @@ def run_test(ex_id, codes_by_id):
         exec(ex["check_call"], ns)
         out = captured.getvalue().strip()
         return "✅" in out, out or "(aucun retour)"
+    # Python s'arrête à la PREMIÈRE erreur : l'élève la corrige, relance, et la
+    # suivante apparaît. On rend ces messages clairs pour les erreurs d'écriture
+    # (syntaxe/indentation) et de nomenclature (noms mal orthographiés).
+    except IndentationError as e:
+        return False, (f"❌ Indentation ligne {e.lineno} : {e.msg}. "
+                       f"Vérifie tes espaces en début de ligne (4 espaces par niveau).")
     except SyntaxError as e:
-        return False, f"❌ Erreur de syntaxe ligne {e.lineno} : {e.msg}"
+        return False, (f"❌ Erreur d'écriture ligne {e.lineno} : {e.msg}. "
+                       f"Vérifie la ponctuation : deux-points « : », parenthèses, guillemets.")
+    except NameError as e:
+        import re as _re
+        m   = _re.search(r"name '([^']+)' is not defined", str(e))
+        nom = m.group(1) if m else None
+        expected = _starter_function_names(ex["starter"])
+        if nom in expected:
+            return False, (f"❌ Le nom « {nom} » n'est pas reconnu — as-tu bien nommé "
+                           f"ta fonction « {nom} » ? (vérifie l'orthographe exacte)")
+        return False, (f"❌ Le nom « {nom} » n'est pas reconnu. Vérifie l'orthographe, "
+                       f"ou qu'il est bien défini / importé avant d'être utilisé.")
     except Exception:
         lines = traceback.format_exc().strip().splitlines()
         last  = next((l for l in reversed(lines) if l.strip()), "Erreur inconnue")
