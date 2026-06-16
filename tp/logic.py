@@ -389,11 +389,16 @@ def _show_error(title, lines):
 EX_ID = "{ex_id}"
 
 try:
+    # L'exo 5 demande la fonction récursive play_rec() ; les autres utilisent play().
+    # Si play_rec n'est pas encore écrite, la référence lève NameError ci-dessous
+    # → écran "Fonction manquante" (au lieu de gagner en silence avec l'ancien play).
+    _generator = play_rec if EX_ID == 'ex5' else play
     scene = HanoiScene(
         is_move_valid=is_move_valid,
         is_game_over=is_game_over,
-        move_generator=play,
+        move_generator=_generator,
         num_disks={NUM_DISKS},
+        win_pole=('C' if EX_ID in ('ex4', 'ex5') else None),
     )
     scene.run()
     # ── Victoire ! Écran de félicitation selon l'exercice ──
