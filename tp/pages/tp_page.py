@@ -173,6 +173,19 @@ textarea {
   resize: none;        /* auto-resize via JS — pas de poignée manuelle */
   min-height: 60px;
   overflow: hidden;    /* cache la scrollbar pendant le resize auto */
+  /* Guides d'indentation : un trait vertical fin tous les 4 caractères.
+     1ch = largeur d'un caractère en police monospace → 4ch = un niveau d'indentation.
+     Le dégradé est répété ; le trait est posé au bord droit de chaque bloc de 4ch. */
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0,
+    transparent calc(4ch - 1px),
+    var(--indent-guide, rgba(255,255,255,.10)) calc(4ch - 1px),
+    var(--indent-guide, rgba(255,255,255,.10)) 4ch
+  );
+  background-origin: content-box;            /* aligne les traits sur le début du texte */
+  background-clip: content-box, border-box;  /* traits limités au texte ; fond plein conservé */
+  background-attachment: local;              /* les traits suivent le texte au défilement */
 }
 
 /* ── actions ── */
