@@ -511,7 +511,9 @@ HTML = """<!DOCTYPE html>
 <script>var EXS = %EXERCISES_JSON%;</script>
 <script src="/static/app.js"></script>
 <script src="/static/hanoi.js"></script>
-<script src="/static/games.js"></script>
+<script src="/static/challenges.js"></script>
+<script src="/static/trophies.js"></script>
+<script src="/static/minigames.js"></script>
 
 <!-- ───────── Onglet « Défis Fun » ───────── -->
 
