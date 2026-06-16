@@ -2733,6 +2733,88 @@ document.addEventListener('DOMContentLoaded', () => {
   </div>
 </div>
 
+<!-- ───────── Volet coulissant : Hanoï jouable ───────── -->
+<style>
+.hanoi-drawer {
+  position: fixed; top: 0; right: 0; height: 100vh; width: 380px;
+  background: #0b1622; border-left: 1px solid var(--blue2, #1f6feb);
+  box-shadow: -12px 0 30px rgba(0,0,0,.45);
+  transform: translateX(380px);
+  transition: transform .35s cubic-bezier(.4,0,.2,1);
+  z-index: 1200; display: flex; flex-direction: column;
+}
+.hanoi-drawer.open { transform: translateX(0); }
+.hanoi-handle {
+  position: absolute; left: -42px; top: 50%; transform: translateY(-50%);
+  width: 42px; padding: 20px 0; cursor: pointer;
+  border: 1px solid var(--blue2, #1f6feb); border-right: none;
+  border-radius: 12px 0 0 12px;
+  background: linear-gradient(135deg, var(--blue2, #1f6feb), var(--blue, #58a6ff));
+  color: #fff; font-weight: 700; font-size: 13px; letter-spacing: .5px;
+  writing-mode: vertical-rl; text-orientation: mixed;
+  box-shadow: -4px 0 12px rgba(0,0,0,.35);
+}
+.hanoi-handle:hover { filter: brightness(1.1); }
+.hanoi-inner { position: relative; padding: 20px 18px 24px; overflow-y: auto; height: 100%; box-sizing: border-box; }
+.hanoi-head h3 { color: var(--blue, #58a6ff); font-size: 18px; margin: 0 0 6px; }
+.hanoi-head p  { color: #9aa7b4; font-size: 13px; line-height: 1.5; margin: 0 0 16px; }
+.hanoi-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; font-size: 13px; color: #cdd9e5; }
+.hanoi-bar select { background: #0d1117; color: #fff; border: 1px solid #30363d; border-radius: 6px; padding: 3px 6px; }
+.hanoi-btn { background: #0d1117; color: var(--blue, #58a6ff); border: 1px solid var(--blue2, #1f6feb); border-radius: 6px; padding: 5px 11px; cursor: pointer; font-size: 12px; font-weight: 600; transition: .12s; }
+.hanoi-btn:hover { background: var(--blue2, #1f6feb); color: #fff; }
+.hanoi-stats { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 12px; font-size: 12.5px; font-weight: 700; color: #cdd9e5; }
+.hanoi-stats span { background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 4px 9px; }
+.hanoi-board { position: relative; display: flex; justify-content: space-around; align-items: flex-end; gap: 10px; height: 300px; background: radial-gradient(120% 90% at 50% 0%, #111c2b, #0a0f16); border: 1px solid #21262d; border-radius: 10px; padding: 14px 10px; margin-bottom: 26px; user-select: none; -webkit-user-select: none; touch-action: none; }
+.hanoi-pole { position: relative; flex: 1; height: 100%; display: flex; flex-direction: column-reverse; align-items: center; cursor: pointer; border-radius: 8px; transition: background .15s; }
+.hanoi-pole:hover { background: rgba(88,166,255,.06); }
+.hanoi-pole.selected { background: rgba(88,166,255,.14); outline: 2px solid var(--blue, #58a6ff); }
+.hanoi-pole.valid { background: rgba(63,185,80,.10); }
+.hanoi-pole.valid::after { background: #2ea043; box-shadow: 0 0 12px rgba(46,160,67,.7); }
+.hanoi-pole::before { content: ""; position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); width: 7px; height: calc(100% - 14px); background: linear-gradient(90deg, #2a3340, #475363, #2a3340); border-radius: 4px; }
+.hanoi-pole::after  { content: ""; position: absolute; bottom: 6px; left: 8%; width: 84%; height: 9px; background: linear-gradient(90deg, #2a3340, #475363, #2a3340); border-radius: 5px; transition: background .15s, box-shadow .15s; }
+.hanoi-disk {
+  position: relative; z-index: 1; height: 22px; margin-bottom: 3px; border-radius: 7px;
+  background-image: linear-gradient(180deg, rgba(255,255,255,.45), rgba(255,255,255,0) 42%, rgba(0,0,0,.30));
+  box-shadow: inset 0 1px 1px rgba(255,255,255,.55), inset 0 -3px 4px rgba(0,0,0,.35), 0 2px 5px rgba(0,0,0,.55);
+  border: 1px solid rgba(0,0,0,.30);
+}
+.hanoi-disk.lifted { outline: 2px solid #fff; box-shadow: 0 0 14px rgba(255,255,255,.5), inset 0 1px 1px rgba(255,255,255,.55); transform: translateY(-8px); }
+.hanoi-label { position: absolute; bottom: -22px; left: 50%; transform: translateX(-50%); color: #8b98a5; font-weight: 700; font-size: 14px; }
+.hanoi-msg { min-height: 22px; font-weight: 700; font-size: 14px; text-align: center; }
+.hanoi-msg.win { color: var(--green, #3fb950); }
+.hanoi-msg.bad { color: #ff7070; }
+#hanoiConfetti { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; }
+</style>
+
+<div id="hanoiDrawer" class="hanoi-drawer">
+  <button type="button" id="hanoiHandle" class="hanoi-handle" onclick="toggleHanoi()">🎮 Joue au Hanoï</button>
+  <canvas id="hanoiConfetti"></canvas>
+  <div class="hanoi-inner">
+    <div class="hanoi-head">
+      <h3>Tours de Hanoï</h3>
+      <p>Clique un poteau pour <b>prendre</b> l\'anneau du sommet, puis un poteau valide (en vert) pour le <b>poser</b>. Reconstruis la tour sur un autre poteau !</p>
+    </div>
+    <div class="hanoi-bar">
+      <label>Anneaux :
+        <select id="hanoiCount" onchange="hanoiReset()">
+          <option>3</option><option selected>4</option><option>5</option><option>6</option>
+          <option>7</option><option>8</option><option>9</option><option>10</option>
+        </select>
+      </label>
+      <button type="button" class="hanoi-btn" id="hanoiSolveBtn" onclick="hanoiSolveToggle()">✨ Résoudre</button>
+      <button type="button" class="hanoi-btn" onclick="hanoiUndo()">↶ Annuler</button>
+      <button type="button" class="hanoi-btn" onclick="hanoiReset()">↺ Rejouer</button>
+    </div>
+    <div class="hanoi-stats">
+      <span id="hanoiMoves">Coups : 0</span>
+      <span id="hanoiTime">⏱ 0.0s</span>
+      <span id="hanoiBest">🏆 —</span>
+    </div>
+    <div id="hanoiBoard" class="hanoi-board"></div>
+    <div id="hanoiMsg" class="hanoi-msg"></div>
+  </div>
+</div>
+
 </body>
 </html>
 """
