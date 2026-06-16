@@ -2656,6 +2656,83 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 </script>
+
+<!-- ───────── Onglet « Défis Fun » ───────── -->
+<style>
+.tab-btn.hidden { display: none; }
+.tab-btn.fun-tab { color: #d2c332; }
+.tab-btn.fun-tab.active { color: #ffd33d; border-bottom-color: #ffd33d; }
+.fun-wrap { position: relative; max-width: 920px; margin: 0 auto; padding: 26px 40px 70px; }
+.fun-hero h2 { color: var(--blue, #58a6ff); font-size: 24px; margin-bottom: 8px; }
+.fun-hero p  { color: #9aa7b4; font-size: 14px; line-height: 1.6; margin-bottom: 24px; }
+.fun-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
+.fun-card { background: #161c2a; border: 1px solid #21262d; border-radius: 12px; padding: 18px; cursor: pointer; transition: transform .15s, border-color .15s, box-shadow .15s; }
+.fun-card:hover { transform: translateY(-3px); border-color: var(--blue2, #1f6feb); box-shadow: 0 8px 24px rgba(0,0,0,.45); }
+.fun-card .emoji { font-size: 34px; line-height: 1; }
+.fun-card h3 { color: #e6edf3; font-size: 17px; margin: 10px 0 6px; }
+.fun-card p  { color: #9aa7b4; font-size: 13px; line-height: 1.5; min-height: 56px; }
+.fun-card .medal { margin-top: 10px; font-weight: 700; font-size: 13.5px; color: #d2c332; }
+.fun-play { margin-top: 10px; }
+.fun-play-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.fun-play-head span { font-weight: 700; color: #e6edf3; font-size: 19px; }
+.fun-bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; font-size: 13px; color: #cdd9e5; }
+.fun-bar span { background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 4px 10px; font-weight: 700; }
+.fun-board { max-width: 700px; height: 340px; margin: 0 auto 26px; }
+#funConfetti { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; }
+.fun-section-title { margin: 38px 0 14px; font-size: 19px; font-weight: 700; color: #e6edf3; }
+.fun-section-title span { font-size: 13px; font-weight: 500; color: #9aa7b4; }
+.mg-icon { height: 46px; display: flex; align-items: center; }
+.mg-icon svg { width: 46px; height: 46px; }
+.mg-title-icon svg { width: 24px; height: 24px; vertical-align: middle; margin-right: 8px; }
+.mini-play { margin-top: 10px; background: #0d1117; border: 1px solid #21262d; border-radius: 12px; padding: 18px; }
+.mini-area { min-height: 90px; margin: 8px 0; }
+.mg-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.mg-row input { background: #161c2a; color: #fff; border: 1px solid #30363d; border-radius: 6px; padding: 8px 10px; font-size: 15px; width: 120px; }
+.mg-msg { color: #cdd9e5; font-size: 15px; font-weight: 600; margin-top: 6px; }
+.mg-ttt { display: grid; grid-template-columns: repeat(3, 60px); gap: 6px; }
+.mg-cell { width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; font-size: 30px; background: #161c2a; border: 1px solid #30363d; border-radius: 8px; cursor: pointer; transition: background .12s; }
+.mg-cell:hover { background: #1f2733; }
+.mini-code { background: #05080c; border: 1px solid #21262d; border-radius: 8px; padding: 14px; color: #cdd9e5; font-family: 'Cascadia Code','Fira Code',monospace; font-size: 13px; line-height: 1.6; overflow-x: auto; white-space: pre; margin-top: 12px; }
+</style>
+
+<div id="panel-fun" class="tab-panel" style="overflow-y:auto;max-height:calc(100vh - 120px)">
+  <div class="fun-wrap">
+    <canvas id="funConfetti"></canvas>
+    <div class="fun-hero">
+      <h2>🎉 Défis Fun — le Hanoï déchaîné</h2>
+      <p>Tu as terminé les 5 exercices, bravo ! Voici 5 défis bonus, plus durs et plus fun, jouables à la souris. Décroche les médailles 🥇🥈🥉 !</p>
+    </div>
+    <div id="funCards" class="fun-cards"></div>
+    <div id="funPlay" class="fun-play" style="display:none">
+      <div class="fun-play-head">
+        <button type="button" class="hanoi-btn" onclick="funClose()">← Retour aux défis</button>
+        <span id="funTitle"></span>
+      </div>
+      <div class="fun-bar">
+        <span id="funGoal"></span>
+        <span id="funMoves">Coups : 0</span>
+        <span id="funTime">⏱ 0.0s</span>
+        <button type="button" class="hanoi-btn" onclick="funRestart()">↺ Recommencer</button>
+        <button type="button" class="hanoi-btn" onclick="funUndo()">↶ Annuler</button>
+      </div>
+      <div id="funBoard" class="hanoi-board fun-board"></div>
+      <div id="funMsg" class="hanoi-msg"></div>
+    </div>
+
+    <div class="fun-section-title">🎮 Mini-jeux bonus <span>(rien à voir avec Hanoï — juste pour s\'amuser, avec le code Python expliqué)</span></div>
+    <div id="miniCards" class="fun-cards"></div>
+    <div id="miniPlay" class="mini-play" style="display:none">
+      <div class="fun-play-head">
+        <button type="button" class="hanoi-btn" onclick="miniClose()">← Retour</button>
+        <span id="miniTitle"></span>
+        <button type="button" class="hanoi-btn" id="miniCodeBtn" onclick="miniToggleCode()" style="margin-left:auto">📖 Voir le code Python</button>
+      </div>
+      <div id="miniArea" class="mini-area"></div>
+      <pre id="miniCode" class="mini-code" style="display:none"></pre>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
 """
