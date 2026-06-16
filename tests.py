@@ -61,6 +61,12 @@ def check_function(func, test_func):
         print('\u2705 Tous les tests sont passés !')
     except AssertionError as e:
         print(f'\u274c {e}')
+    except NameError as e:
+        import re
+        m   = re.search(r"name '([^']+)' is not defined", str(e))
+        nom = m.group(1) if m else str(e)
+        print(f"\u274c Le nom \u00ab {nom} \u00bb n'est pas reconnu. V\u00e9rifie l'orthographe, "
+              f"ou qu'il est bien d\u00e9fini avant d'\u00eatre utilis\u00e9.")
     except Exception as e:
         print(f'\u274c Ton code a levé une exception : {type(e).__name__}, {e}')
 
