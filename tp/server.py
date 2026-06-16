@@ -8,7 +8,7 @@ from socketserver import ThreadingMixIn
 from urllib.parse import urlparse
 
 from tp.exercises import EXERCISES
-from tp.pages     import WELCOME, DOCS, HTML
+from tp.pages     import HTML
 from tp.logic     import run_test, launch_pygame
 from tp           import progress
 

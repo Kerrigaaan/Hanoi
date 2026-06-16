@@ -5,7 +5,7 @@ from tp.exercises   import EXERCISES
 from tp.assets      import _ZERG_B64
 from tp.celebration import _CELEBRATION_CODE
 
-# Récupère BASE_DIR et NUM_DISKS depuis le module principal
+# Racine du projet et nombre de disques du jeu
 BASE_DIR  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NUM_DISKS = 3
 

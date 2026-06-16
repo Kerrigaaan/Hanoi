@@ -9,7 +9,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
 
 PORT      = 5678
-NUM_DISKS = 3
 
 # La progression (ex3/ex4 débloqués) est désormais persistée par élève
 # dans progress.json — voir tp/progress.py.
