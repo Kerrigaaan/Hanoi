@@ -158,15 +158,15 @@ def _show_celebration(ex_id):
 
     # Chargement de l'image Zerg depuis la base64 embarquée
     _zerg_img = None
-    _zerg_base_w = _zerg_base_h = 600
+    _zerg_base_w = _zerg_base_h = 300
     try:
         import io as _io, base64 as _b64
         _raw = _b64.b64decode(_ZERG_B64)
         _buf = _io.BytesIO(_raw)
         _zerg_img = pygame.image.load(_buf, "zerg.png").convert_alpha()
-        # Redimensionne à 600px max en gardant les proportions
+        # Redimensionne à 300px max en gardant les proportions
         _zw, _zh = _zerg_img.get_size()
-        _scale = min(600/_zw, 600/_zh)
+        _scale = min(300/_zw, 300/_zh)
         _zerg_base_w = int(_zw*_scale); _zerg_base_h = int(_zh*_scale)
         _zerg_img = pygame.transform.smoothscale(_zerg_img, (_zerg_base_w, _zerg_base_h))
     except Exception:
