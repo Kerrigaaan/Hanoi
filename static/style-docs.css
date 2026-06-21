@@ -1,0 +1,195 @@
+/* ── Doc intégrée (reprise des styles DOCS) ─────────────────── */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:     #0d1117;
+  --panel:  #161c2a;
+  --card:   #1c2333;
+  --border: #2a3550;
+  --blue:   #58a6ff;
+  --blue2:  #1f6feb;
+  --green:  #3fb950;
+  --yellow: #e6b84a;
+  --yelbg:  #22200e;
+  --purple: #c678dd;
+  --orange: #e5a24b;
+  --teal:   #56b6c2;
+}
+html, body {
+  min-height: 100%;
+  background: var(--bg);
+  color: #ffffff;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 16px;
+}
+
+/* ── header ── */
+header {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--panel);
+  border-bottom: 2px solid var(--border);
+  padding: 0 32px; height: 64px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.hdr-left { display: flex; align-items: center; gap: 14px; }
+.hdr-left h1 { font-size: 18px; font-weight: 700; color: var(--blue); }
+.back-btn {
+  background: var(--card); color: var(--blue);
+  border: 1px solid var(--blue2); border-radius: 8px;
+  padding: 8px 18px; font-size: 14px; font-weight: 600;
+  text-decoration: none; transition: .12s;
+}
+.back-btn:hover { background: var(--blue2); color: #fff; }
+
+/* ── layout ── */
+.layout {
+  display: flex;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 32px 60px;
+  gap: 32px;
+}
+
+/* ── sidebar navigation ── */
+.sidebar {
+  flex: 0 0 220px;
+  position: sticky;
+  top: 80px;
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sidebar-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #6a7a9a;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  padding: 0 10px 10px;
+}
+.nav-link {
+  display: block;
+  padding: 9px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #c8d0e0;
+  text-decoration: none;
+  transition: .12s;
+  border-left: 3px solid transparent;
+}
+.nav-link:hover { background: var(--card); color: #fff; }
+.nav-link.active { background: var(--card); color: var(--blue); border-left-color: var(--blue); }
+
+/* ── contenu ── */
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 0;
+}
+
+/* ── section doc ── */
+.doc-section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  scroll-margin-top: 80px;
+}
+.doc-head {
+  padding: 16px 24px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px;
+}
+.doc-icon { font-size: 20px; }
+.doc-head h2 { font-size: 17px; font-weight: 700; color: #ffffff; }
+.doc-body {
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── sous-sections ── */
+.sub { display: flex; flex-direction: column; gap: 10px; }
+.sub-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--blue);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+.sub p, .sub li {
+  font-size: 15px;
+  line-height: 1.9;
+  color: #c8d0e0;
+}
+.sub ul { padding-left: 20px; display: flex; flex-direction: column; gap: 5px; }
+.sub ul li::marker { color: var(--blue); }
+
+/* ── blocs de code ── */
+.code-block {
+  background: #070b12;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.code-label {
+  padding: 6px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  color: #6a7a9a;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+pre {
+  padding: 16px 18px;
+  font-family: 'Cascadia Code','Fira Code','Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.85;
+  overflow-x: auto;
+  color: #abb2bf;
+}
+/* coloration syntaxique manuelle */
+.kw  { color: #c678dd; }   /* keywords */
+.fn  { color: #61afef; }   /* fonctions */
+.st  { color: #98c379; }   /* strings */
+.nb  { color: #e5c07b; }   /* nombres */
+.cm  { color: #5c6370; font-style: italic; }   /* commentaires */
+.op  { color: #56b6c2; }   /* opérateurs */
+.var { color: #e06c75; }   /* variables / noms */
+
+/* ── astuce / attention ── */
+.tip {
+  display: flex; gap: 12px; align-items: flex-start;
+  background: #0e2010; border: 1px solid #1e5c28;
+  border-radius: 10px; padding: 16px 18px;
+  font-size: 15px; line-height: 1.9; color: #ffffff;
+}
+.warn {
+  display: flex; gap: 12px; align-items: flex-start;
+  background: #1c1205; border: 1px solid #7a5010;
+  border-radius: 10px; padding: 14px 16px;
+  font-size: 14px; line-height: 1.7; color: #f0c070;
+}
+.tip-icon, .warn-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+
+/* ── inline code ── */
+ic { display: inline;
+  background: rgba(88,166,255,.15);
+  color: #ffffff; padding: 1px 7px; border-radius: 4px;
+  font-family: 'Cascadia Code','Fira Code', monospace;
+  font-size: 14px; font-weight: 600;
+  border: 1px solid rgba(88,166,255,.25); }
+
+.hidden { display: none !important; }
+.tab-btn.hidden { display: none; }
+.tab-btn.fun-tab { color: #d2c332; }
+.tab-btn.fun-tab.active { color: #ffd33d; border-bottom-color: #ffd33d; }
+.tab-btn.admin-tab { color: #8a94a0; }
+.tab-btn.admin-tab.active { color: #cdd9e5; border-bottom-color: #cdd9e5; }
+

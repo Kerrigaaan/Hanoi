@@ -1,0 +1,179 @@
+/* ── Styles page accueil ── */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:     #0d1117;
+  --panel:  #161c2a;
+  --card:   #1c2333;
+  --border: #2a3550;
+  --text:   #ffffff;
+  --muted:  #ffffff;
+  --blue:   #58a6ff;
+  --blue2:  #1f6feb;
+  --green:  #3fb950;
+  --yellow: #e6b84a;
+  --yelbg:  #22200e;
+}
+html, body { min-height: 100%; background: var(--bg); color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif; font-size: 16px; }
+
+/* ── header ── */
+header {
+  background: var(--panel);
+  border-bottom: 2px solid var(--border);
+  padding: 0 40px;
+  height: 64px;
+  display: flex; align-items: center; gap: 14px;
+}
+header h1 { font-size: 20px; font-weight: 700; color: var(--blue); }
+header span { font-size: 13px; color: var(--muted); }
+
+/* ── hero ── */
+.hero {
+  text-align: center;
+  padding: 60px 40px 40px;
+}
+.hero-icon { font-size: 72px; line-height: 1; margin-bottom: 20px; }
+.hero h2   { font-size: 32px; font-weight: 800; color: var(--text); margin-bottom: 10px; }
+.hero p    { font-size: 17px; color: #c8d0e0; max-width: 640px; margin: 0 auto; line-height: 1.8; }
+
+/* ── contenu ── */
+.content {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 0 40px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+/* ── section card ── */
+.section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.section-head {
+  padding: 16px 24px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px;
+}
+.section-icon { font-size: 20px; }
+.section-head h3 { font-size: 16px; font-weight: 700; color: var(--text); }
+.section-body {
+  padding: 22px 24px;
+  font-size: 16px;
+  line-height: 2;
+  color: #ffffff;
+}
+.section-body b {
+  color: #ffffff;
+  background: rgba(255,255,255,.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.section-body code {
+  background: rgba(88,166,255,.15);
+  color: #ffffff;
+  padding: 2px 9px;
+  border-radius: 5px;
+  font-family: 'Cascadia Code','Fira Code','Courier New', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid rgba(88,166,255,.3);
+}
+.section-body ul {
+  margin: 12px 0 0 20px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.section-body ul li { list-style: none; padding-left: 8px; }
+.section-body ul li::before { content: "→ "; color: var(--blue); font-weight: 700; }
+
+/* ── règles visuelles ── */
+.rules {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 4px;
+}
+.rule {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+  display: flex; gap: 14px; align-items: flex-start;
+}
+.rule-num {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--blue2); color: #fff;
+  font-size: 15px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.rule-text { font-size: 15px; line-height: 1.7; color: #ffffff; }
+.rule-text b { color: var(--text); }
+
+/* ── étapes du TP ── */
+.steps {
+  display: flex; flex-direction: column; gap: 0;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.step {
+  display: flex; align-items: center; gap: 16px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  font-size: 15px; color: #ffffff;
+}
+.step:last-child { border-bottom: none; }
+.step-badge {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--blue2); color: #fff;
+  font-size: 13px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.step b { color: var(--text); }
+.step .lock { margin-left: auto; font-size: 13px; color: var(--border); }
+
+/* ── imports ── */
+.imports-block {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 20px;
+  margin-top: 4px;
+  font-family: 'Cascadia Code','Fira Code','Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.9;
+  color: #8a9abb;
+}
+.imports-block .kw  { color: #ff7b72; }
+.imports-block .mod { color: var(--blue); }
+.imports-block .cmt { color: #444d60; }
+
+/* ── bouton ── */
+.cta-wrap {
+  text-align: center;
+  padding: 10px 0 0;
+}
+.cta-btn {
+  display: inline-block;
+  background: linear-gradient(135deg, var(--blue2), var(--blue));
+  color: #fff;
+  text-decoration: none;
+  border-radius: 12px;
+  padding: 16px 48px;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: .3px;
+  transition: filter .15s, transform .15s;
+  box-shadow: 0 4px 24px rgba(31,111,235,.35);
+}
+.cta-btn:hover { filter: brightness(1.15); transform: translateY(-2px); }
+.cta-sub { margin-top: 12px; font-size: 15px; color: #c8d0e0; }
+
