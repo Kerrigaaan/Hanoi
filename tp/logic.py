@@ -1,5 +1,5 @@
 # Logique Python : tests, assemblage du code élève, lancement pygame
-import os, sys, io, builtins, traceback, tempfile, subprocess, ast, textwrap
+import os, sys, io, builtins, traceback, tempfile, subprocess, ast, textwrap, json
 
 from tp.exercises   import EXERCISES
 from tp.assets      import _ZERG_B64
@@ -9,6 +9,13 @@ from tp.celebration import _CELEBRATION_CODE
 BASE_DIR  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NUM_DISKS = 3
 
+# Le code de l'élève s'exécute dans un sous-process : un timeout l'empêche de
+# geler le serveur (boucle infinie), et l'isole du process principal.
+TEST_RUNNER    = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_test_subprocess.py")
+TEST_TIMEOUT   = 5     # secondes — un test ne doit jamais durer plus longtemps
+LAUNCH_TIMEOUT = 300   # secondes — partie pygame interactive (généreux), borne les runaway
+_RESULT_MARKER = "__RESULT__"
+
 def run_test(ex_id, codes_by_id):
     ex = next((e for e in EXERCISES if e["id"] == ex_id), None)
     if not ex:               return False, "Exercice introuvable."
@@ -17,41 +24,49 @@ def run_test(ex_id, codes_by_id):
     needed = list(ex.get("needs", [])) + [ex_id]
     code   = "\n\n".join(codes_by_id.get(i, "").strip() for i in needed if i in codes_by_id)
 
-    captured = io.StringIO()
-    old_p    = builtins.print
-    builtins.print = lambda *a, **kw: captured.write(" ".join(str(x) for x in a) + "\n")
+    payload = {
+        "base_dir":        BASE_DIR,
+        "code":            code,
+        "check_setup":     ex["check_setup"],
+        "check_call":      ex["check_call"],
+        "expected_names":  _starter_function_names(ex["starter"]),
+    }
+
+    tmp = None
     try:
-        ns = {}
-        exec(ex["check_setup"], ns)
-        exec(code, ns)
-        exec(ex["check_call"], ns)
-        out = captured.getvalue().strip()
-        return "✅" in out, out or "(aucun retour)"
-    # Python s'arrête à la PREMIÈRE erreur : l'élève la corrige, relance, et la
-    # suivante apparaît. On rend ces messages clairs pour les erreurs d'écriture
-    # (syntaxe/indentation) et de nomenclature (noms mal orthographiés).
-    except IndentationError as e:
-        return False, (f"❌ Indentation ligne {e.lineno} : {e.msg}. "
-                       f"Vérifie tes espaces en début de ligne (4 espaces par niveau).")
-    except SyntaxError as e:
-        return False, (f"❌ Erreur d'écriture ligne {e.lineno} : {e.msg}. "
-                       f"Vérifie la ponctuation : deux-points « : », parenthèses, guillemets.")
-    except NameError as e:
-        import re as _re
-        m   = _re.search(r"name '([^']+)' is not defined", str(e))
-        nom = m.group(1) if m else None
-        expected = _starter_function_names(ex["starter"])
-        if nom in expected:
-            return False, (f"❌ Le nom « {nom} » n'est pas reconnu — as-tu bien nommé "
-                           f"ta fonction « {nom} » ? (vérifie l'orthographe exacte)")
-        return False, (f"❌ Le nom « {nom} » n'est pas reconnu. Vérifie l'orthographe, "
-                       f"ou qu'il est bien défini / importé avant d'être utilisé.")
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False)
+            tmp = f.name
+        proc = subprocess.run(
+            [sys.executable, TEST_RUNNER, tmp],
+            capture_output=True, text=True, timeout=TEST_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        return False, ("❌ Ton code met trop de temps à répondre (plus de "
+                       f"{TEST_TIMEOUT} s). As-tu une boucle qui ne s'arrête jamais "
+                       "(par ex. « while True » sans condition de sortie) ?")
     except Exception:
         lines = traceback.format_exc().strip().splitlines()
         last  = next((l for l in reversed(lines) if l.strip()), "Erreur inconnue")
         return False, f"❌ {last}"
     finally:
-        builtins.print = old_p
+        if tmp:
+            try: os.unlink(tmp)
+            except Exception: pass
+
+    # Le runner écrit son résultat JSON après le marqueur. On prend la dernière
+    # occurrence pour ignorer un éventuel affichage parasite du code de l'élève.
+    out = proc.stdout or ""
+    idx = out.rfind(_RESULT_MARKER)
+    if idx == -1:
+        err  = (proc.stderr or "").strip().splitlines()
+        last = err[-1] if err else "Erreur inconnue lors du test."
+        return False, f"❌ {last}"
+    try:
+        result = json.loads(out[idx + len(_RESULT_MARKER):])
+    except Exception:
+        return False, "❌ Erreur inattendue lors du test."
+    return bool(result.get("ok")), result.get("message", "")
 
 
 import ast, textwrap
@@ -162,6 +177,8 @@ def launch_pygame(codes_by_id, ex_id=''):
     stu_code = "\n\n".join(imports + list(merged.values()))
 
     script = f"""
+import os
+os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "hide")
 import sys
 sys.path.insert(0, {repr(BASE_DIR)})
 import pygame
@@ -230,18 +247,26 @@ except Exception as e:
     _show_error("Erreur dans ton code", lines[-10:])
     sys.exit(1)
 """
+    tmp = None
     try:
         with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, encoding="utf-8") as f:
             f.write(script)
             tmp = f.name
-        result = subprocess.run([sys.executable, tmp])
-        try:
-            os.unlink(tmp)
-        except Exception:
-            pass
+        result = subprocess.run([sys.executable, tmp], timeout=LAUNCH_TIMEOUT)
         game_ok = (result.returncode == 0)
         return True, "OK", game_ok
+    except subprocess.TimeoutExpired:
+        # Dépassement : souvent un play() sans yield qui boucle (ex. « while True »),
+        # ce qui empêche même la fenêtre de s'ouvrir.
+        return (False,
+                "⏱ Le jeu a été interrompu (plus de 5 min). Vérifie que ta fonction "
+                "utilise bien « yield » et qu'elle finit par s'arrêter.",
+                False)
     except Exception:
         lines = traceback.format_exc().strip().splitlines()
         last  = next((l for l in reversed(lines) if l.strip()), "Erreur inconnue")
         return False, last, False
+    finally:
+        if tmp:
+            try: os.unlink(tmp)
+            except Exception: pass
