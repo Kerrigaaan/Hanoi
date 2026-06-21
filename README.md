@@ -30,7 +30,9 @@ Les erreurs de syntaxe / de nom sont expliquées une à la fois.
 
 ## L'onglet « Défis Fun »
 
-Débloqué après la réussite de l'exercice 5. Il contient :
+Débloqué après la réussite de l'exercice 5 — ou via l'onglet **Admin**
+(« Espace enseignant ») protégé par un mot de passe, pour le débloquer
+même si l'élève n'a pas terminé tous les exercices. Il contient :
 
 - un **Hanoï jouable** à la souris (volet latéral : glisser-déposer, animation,
   résolution automatique, 3 à 10 anneaux) ;
@@ -97,5 +99,6 @@ python -m pytest tests/ -q
   `num`, `title`, `instructions`, `starter`, `check_setup`, `check_call`,
   `unlock_after`, `has_launch`).
 - **Style / scripts** : éditer les fichiers de `static/`.
-- **Pages Accueil / Documentation** : éditer `tp/pages/welcome.py` et `tp/pages/docs.py`.
+- **Page (Accueil / Documentation / onglets)** : éditer `tp/pages/templates/tp_page.html`.
+- **Mot de passe enseignant** (onglet Admin) : constante `ADMIN_PASSWORD` dans `static/app.js`.
 - **Écran de félicitation** : éditer `tp/celebration.py`.
