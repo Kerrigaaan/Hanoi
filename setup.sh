@@ -54,18 +54,19 @@ FILES=(
     "tp_hanoi.py"
     "engine/__init__.py"
     "engine/scene.py"
-    "tests.py"
+    "tests/__init__.py"
+    "tests/test_regressions.py"
     "util.py"
     "tp/__init__.py"
     "tp/exercises.py"
     "tp/assets.py"
     "tp/celebration.py"
     "tp/logic.py"
+    "tp/_test_subprocess.py"
     "tp/server.py"
     "tp/pages/__init__.py"
-    "tp/pages/welcome.py"
-    "tp/pages/docs.py"
     "tp/pages/tp_page.py"
+    "tp/pages/templates/tp_page.html"
 )
 
 for f in "${FILES[@]}"; do

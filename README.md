@@ -47,40 +47,48 @@ La progression (exercices débloqués) est persistée **par élève** dans
 
 ## Structure du projet
 
-```
+```text
 hanoi/
 ├── tp_hanoi.py          # Point d'entrée — serveur HTTP + main()
 ├── engine/
 │   ├── __init__.py      # Classes Pole, Disk, Camera, Stand
 │   └── scene.py         # HanoiScene — fenêtre pygame du jeu (param win_pole)
-├── tests.py             # check_is_game_over, check_is_move_valid
-├── test_regressions.py  # Tests pytest de non-régression
+├── tests/
+│   ├── __init__.py      # check_is_game_over, check_is_move_valid (importé par les exos)
+│   └── test_regressions.py  # Tests pytest de non-régression
 ├── util.py
 ├── assets/
 │   └── zerg.png         # Image de l'écran de félicitation
 ├── static/              # Ressources servies via /static/
-│   ├── style.css        # Tous les styles
-│   ├── app.js           # Onglets, exercices, test/lancement, coloration
+│   ├── style.css        # Base : header, cartes, éditeur, boutons, onglets
+│   ├── style-home.css   # Page d'accueil
+│   ├── style-docs.css   # Documentation Python
+│   ├── style-fun.css    # Espace enseignant + vitrine des trophées
+│   ├── style-polish.css # Responsive + animations
+│   ├── app.js           # Onglets, exercices, test/lancement, coloration, admin
 │   ├── hanoi.js         # Le Hanoï jouable du volet
-│   └── games.js         # Défis + mini-jeux + vitrine de trophées
+│   ├── challenges.js    # Défis Hanoï de l'onglet « Défis Fun »
+│   ├── minigames.js     # 15 mini-jeux bonus
+│   └── trophies.js      # Vitrine des trophées
 └── tp/
     ├── exercises.py     # Liste des 5 exercices (données)
     ├── logic.py         # run_test(), launch_pygame()
+    ├── _test_subprocess.py  # Exécuteur isolé d'un test (sous-process + timeout)
     ├── server.py        # Serveur HTTP (Handler, fichiers statiques)
     ├── progress.py      # Persistance de la progression par élève
     ├── assets.py        # Charge assets/zerg.png et l'expose en base64
     ├── celebration.py   # Code pygame de félicitation (injecté)
     └── pages/
-        ├── __init__.py  # Réexporte WELCOME, DOCS, HTML
-        ├── welcome.py
-        ├── docs.py
-        └── tp_page.py   # Template HTML (référence les fichiers static/)
+        ├── __init__.py  # Réexporte HTML
+        ├── tp_page.py   # Charge le template HTML
+        └── templates/
+            └── tp_page.html  # HTML de la page (référence les fichiers static/)
 ```
 
 ## Tests
 
 ```bash
-python -m pytest test_regressions.py -q
+python -m pytest tests/ -q
 ```
 
 ## Modifier le TP
