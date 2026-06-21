@@ -1,207 +1,176 @@
-# Page documentation Python — onglet Documentation
-
-DOCS = """<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Documentation Python — TP Hanoï</title>
-<style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-:root {
-  --bg:     #0d1117;
-  --panel:  #161c2a;
-  --card:   #1c2333;
-  --border: #2a3550;
-  --blue:   #58a6ff;
-  --blue2:  #1f6feb;
-  --green:  #3fb950;
-  --yellow: #e6b84a;
-  --yelbg:  #22200e;
-  --purple: #c678dd;
-  --orange: #e5a24b;
-  --teal:   #56b6c2;
-}
-html, body {
-  min-height: 100%;
-  background: var(--bg);
-  color: #ffffff;
-  font-family: 'Segoe UI', system-ui, sans-serif;
-  font-size: 16px;
-}
-
-/* ── header ── */
-header {
-  position: sticky; top: 0; z-index: 100;
-  background: var(--panel);
-  border-bottom: 2px solid var(--border);
-  padding: 0 32px; height: 64px;
-  display: flex; align-items: center; justify-content: space-between;
-}
-.hdr-left { display: flex; align-items: center; gap: 14px; }
-.hdr-left h1 { font-size: 18px; font-weight: 700; color: var(--blue); }
-.back-btn {
-  background: var(--card); color: var(--blue);
-  border: 1px solid var(--blue2); border-radius: 8px;
-  padding: 8px 18px; font-size: 14px; font-weight: 600;
-  text-decoration: none; transition: .12s;
-}
-.back-btn:hover { background: var(--blue2); color: #fff; }
-
-/* ── layout ── */
-.layout {
-  display: flex;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 32px 32px 60px;
-  gap: 32px;
-}
-
-/* ── sidebar navigation ── */
-.sidebar {
-  flex: 0 0 220px;
-  position: sticky;
-  top: 80px;
-  align-self: flex-start;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.sidebar-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: #c8d0e0;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  padding: 0 10px 10px;
-}
-.nav-link {
-  display: block;
-  padding: 11px 14px;
-  border-radius: 8px;
-  font-size: 15px;
-  color: #ffffff;
-  text-decoration: none;
-  transition: .12s;
-  border-left: 3px solid transparent;
-}
-.nav-link:hover { background: var(--card); color: #fff; }
-.nav-link.active { background: var(--card); color: var(--blue); border-left-color: var(--blue); }
-
-/* ── contenu ── */
-.content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 28px;
-  min-width: 0;
-}
-
-/* ── section doc ── */
-.doc-section {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  overflow: hidden;
-  scroll-margin-top: 80px;
-}
-.doc-head {
-  padding: 16px 24px;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; gap: 12px;
-}
-.doc-icon { font-size: 20px; }
-.doc-head h2 { font-size: 18px; font-weight: 700; color: #ffffff; }
-.doc-body {
-  padding: 26px 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-/* ── sous-sections ── */
-.sub { display: flex; flex-direction: column; gap: 10px; }
-.sub-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--blue);
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 6px;
-}
-.sub p, .sub li {
-  font-size: 16px;
-  line-height: 2;
-  color: #ffffff;
-}
-.sub ul { padding-left: 20px; display: flex; flex-direction: column; gap: 5px; }
-.sub ul li::marker { color: var(--blue); }
-
-/* ── blocs de code ── */
-.code-block {
-  background: #070b12;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-}
-.code-label {
-  padding: 8px 16px;
-  background: var(--panel);
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
-  color: #c8d0e0;
-  text-transform: uppercase;
-  letter-spacing: .06em;
-}
-pre {
-  padding: 18px 20px;
-  font-family: 'Cascadia Code','Fira Code','Courier New', monospace;
-  font-size: 15px;
-  line-height: 2;
-  overflow-x: auto;
-  color: #ffffff;
-}
-/* coloration syntaxique manuelle */
-.kw  { color: #e0a0ff; }   /* keywords */
-.fn  { color: #80c8ff; }   /* fonctions */
-.st  { color: #b5f0a0; }   /* strings */
-.nb  { color: #ffd080; }   /* nombres */
-.cm  { color: #8090a8; font-style: italic; }   /* commentaires */
-.op  { color: #80e0f0; }   /* opérateurs */
-.var { color: #ff9090; }   /* variables / noms */
-
-/* ── astuce / attention ── */
-.tip {
-  display: flex; gap: 12px; align-items: flex-start;
-  background: #0e2010; border: 1px solid #1e5c28;
-  border-radius: 10px; padding: 16px 18px;
-  font-size: 14px; line-height: 1.7; color: #b6e4be;
-}
-.warn {
-  display: flex; gap: 12px; align-items: flex-start;
-  background: #1c1205; border: 1px solid #7a5010;
-  border-radius: 10px; padding: 16px 18px;
-  font-size: 15px; line-height: 1.9; color: #ffffff;
-}
-.tip-icon, .warn-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
-
-/* ── inline code ── */
-ic { display: inline;
-  background: rgba(88,166,255,.15);
-  color: #ffffff; padding: 1px 7px; border-radius: 4px;
-  font-family: 'Cascadia Code','Fira Code', monospace;
-  font-size: 14px; font-weight: 600;
-  border: 1px solid rgba(88,166,255,.25); }
-</style>
+<title>TP — Tours de Hanoï</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/style-home.css">
+<link rel="stylesheet" href="/static/style-docs.css">
+<link rel="stylesheet" href="/static/style-fun.css">
+<link rel="stylesheet" href="/static/style-polish.css">
 </head>
 <body>
 
+<!-- header sans bouton docs -->
 <header>
   <div class="hdr-left">
-    <h1>Documentation Python</h1>
+    <h1><svg width="20" height="20" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle">
+  <rect x="12" y="2" width="4" height="22" rx="2" fill="#58a6ff"/>
+  <rect x="4" y="20" width="20" height="4" rx="2" fill="#58a6ff"/>
+  <rect x="6" y="14" width="16" height="4" rx="1.5" fill="#7dbfff"/>
+  <rect x="9" y="9" width="10" height="4" rx="1.5" fill="#9ecfff"/>
+</svg> TP — Tours de Hanoï</h1>
+    <p>Fais les exercices <b>dans l'ordre</b> — chaque exercice se débloque quand le précédent est réussi.</p>
   </div>
-  <a class="back-btn" href="/tp">← Retour aux exercices</a>
+  <div class="hdr-right">
+    <span id="statusMsg" class="info">Commence par l'exercice 1 !</span>
+  </div>
 </header>
 
+<!-- barre d'onglets -->
+<div class="tabs">
+  <button type="button" class="tab-btn active" id="tab-accueil"   onclick="switchTab('accueil')">Accueil</button>
+  <button type="button" class="tab-btn" id="tab-exercises" onclick="switchTab('exercises')">Exercices</button>
+  <button type="button" class="tab-btn" id="tab-docs"      onclick="switchTab('docs')">Documentation Python</button>
+  <button type="button" class="tab-btn fun-tab hidden" id="tab-fun" onclick="switchTab('fun')"><span class="fun-ico-sm"><svg viewBox="0 0 24 24" fill="none"><path d="M3 21l5.5-11 5.5 5.5z" fill="#e68c32"/><path d="M3 21l5.5-11 2.6 2.6z" fill="#d2c332"/><circle cx="15.5" cy="6" r="1.3" fill="#e04646"/><circle cx="19.5" cy="9.5" r="1.3" fill="#3c82d2"/><circle cx="18" cy="4" r="1.1" fill="#50b450"/><circle cx="21" cy="13.5" r="1.1" fill="#8c50c8"/><path d="M14 9.5l2.2-2.2M16.5 12.5l2.4-1M13.2 6.5l1.4-2.6" stroke="#d2c332" stroke-width="1.3" stroke-linecap="round"/></svg></span> Défis Fun</button>
+  <button type="button" class="tab-btn admin-tab" id="tab-admin" onclick="switchTab('admin')">Admin<span class="admin-badge hidden" id="adminBadge"></span></button>
+</div>
+
+<!-- panneau accueil -->
+<div id="panel-accueil" class="tab-panel active" style="overflow-y:auto;max-height:calc(100vh - 120px)">
+  <div style="max-width:860px;margin:0 auto;padding:0 40px 60px">
+<div class="hero">
+  <div class="hero-icon"><svg width="80" height="80" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="12" y="2" width="4" height="22" rx="2" fill="#58a6ff"/>
+  <rect x="4" y="20" width="20" height="4" rx="2" fill="#58a6ff"/>
+  <rect x="6" y="14" width="16" height="4" rx="1.5" fill="#7dbfff"/>
+  <rect x="9" y="9" width="10" height="4" rx="1.5" fill="#9ecfff"/>
+</svg></div>
+  <h2>Bienvenue dans ce TP !</h2>
+  <p>Tu vas coder pas à pas un mini jeu-vidéo des <b>Tours de Hanoï</b> en Python,
+     et à la fin ton programme jouera <b>tout seul</b> à ta place !</p>
+</div>
+
+<div class="content">
+
+  <!-- C'est quoi ? -->
+  <div class="section">
+    <div class="section-head">
+      
+      <h3>C'est quoi les Tours de Hanoï ?</h3>
+    </div>
+    <div class="section-body">
+      <p>D'après <b>Wikipedia</b> :</p>
+      <br>
+      <p>Les tours de Hanoï sont un jeu de réflexion imaginé par le mathématicien
+         français <b>Édouard Lucas</b> en 1883. Le but est de déplacer une pile de
+         disques de diamètres différents d'une tour de <b>départ</b> vers une tour
+         d'<b>arrivée</b>, en passant par une tour <b>intermédiaire</b>, en un minimum
+         de coups.</p>
+    </div>
+  </div>
+
+  <!-- Règles -->
+  <div class="section">
+    <div class="section-head">
+      
+      <h3>Les règles du jeu</h3>
+    </div>
+    <div class="section-body">
+      <div class="rules">
+        <div class="rule">
+          <div class="rule-num">1</div>
+          <div class="rule-text">On ne peut déplacer
+            <b>qu'un seul disque</b> à la fois.</div>
+        </div>
+        <div class="rule">
+          <div class="rule-num">2</div>
+          <div class="rule-text">On ne peut poser un disque que sur un
+            <b>disque plus grand</b> que lui, ou sur un
+            <b>emplacement vide</b>.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ce TP -->
+  <div class="section">
+    <div class="section-head">
+      
+      <h3>Ce que tu vas faire dans ce TP</h3>
+    </div>
+    <div class="section-body">
+      <p>Le code du jeu est <b>déjà écrit</b> — la fenêtre de jeu, les graphismes,
+         les animations. Il ne te reste qu'à compléter <b>5 fonctions</b>
+         qui font tourner la logique du jeu.</p>
+      <div class="steps">
+        <div class="step">
+          <div class="step-badge">1</div>
+          <div><b>is_game_over()</b> — la partie est-elle terminée ?</div>
+        </div>
+        <div class="step">
+          <div class="step-badge">2</div>
+          <div><b>is_move_valid()</b> — ce mouvement respecte-t-il les règles ?</div>
+        </div>
+        <div class="step">
+          <div class="step-badge">3</div>
+          <div><b>play()</b> — un bot qui joue automatiquement (algorithme itératif)</div>
+          <span class="lock">après ex. 2</span>
+        </div>
+        <div class="step">
+          <div class="step-badge">4</div>
+          <div><b>play() strict</b> — le bot dépose tout sur C uniquement</div>
+          <span class="lock">après ex. 3</span>
+        </div>
+        <div class="step">
+          <div class="step-badge">5</div>
+          <div><b>play_rec()</b> — version récursive en 3 lignes !</div>
+          <span class="lock">après ex. 4</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Imports disponibles -->
+  <div class="section">
+    <div class="section-head">
+      
+      <h3>Ce qui est déjà disponible dans ton code</h3>
+    </div>
+    <div class="section-body">
+      <p>Ces imports sont automatiquement disponibles dans chaque exercice,
+         tu n'as <b>pas besoin</b> de les réécrire :</p>
+      <br>
+      <div class="imports-block">
+        <span class="cmt"># Types Python pour les annotations</span><br>
+        <span class="kw">from</span> typing <span class="kw">import</span>
+        <span class="mod">Dict, Iterator, Tuple</span><br><br>
+        <span class="cmt"># Les objets du jeu — poles contient A, B et C</span><br>
+        <span class="cmt"># poles['A'].num_disks  → nombre de disques sur A</span><br>
+        <span class="cmt"># poles['A'].upper_disk.width  → largeur du disque au sommet</span><br>
+        <span class="kw">from</span> engine <span class="kw">import</span>
+        <span class="mod">Pole, Disk</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bouton -->
+  <div class="cta-wrap">
+    <button type="button" class="cta-btn" onclick="switchTab('exercises')">Commencer les exercices →</button>
+    <p class="cta-sub">Les exercices se débloquent dans l'ordre — commence par le 1 !</p>
+  </div>
+
+</div>
+  </div>
+</div>
+
+<!-- panneau exercices -->
+<div id="panel-exercises" class="tab-panel" style="overflow-y:auto;max-height:calc(100vh - 120px);min-height:0">
+  <main id="exList"></main>
+</div></div>
+
+<!-- panneau documentation -->
+<div id="panel-docs" class="tab-panel">
 <div class="layout">
 
   <!-- ── Sidebar ── -->
@@ -539,25 +508,126 @@ ic { display: inline;
 
   </div><!-- /content -->
 </div><!-- /layout -->
+</div>
 
-<script>
-// Active le lien de navigation correspondant à la section visible
-const links = document.querySelectorAll('.nav-link');
-const sections = document.querySelectorAll('.doc-section');
+<!-- panneau admin (enseignant) -->
+<div id="panel-admin" class="tab-panel">
+  <div class="admin-wrap">
+    <div class="admin-card" id="adminCard">
+      <div class="admin-icon">
+        <span class="admin-icon-ring"></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="10" width="16" height="11" rx="2.5"/>
+          <path d="M8 10V7a4 4 0 0 1 8 0v3"/>
+          <circle cx="12" cy="15" r="1.4" fill="#58a6ff" stroke="none"/>
+          <path d="M12 16.4V18"/>
+        </svg>
+      </div>
+      <h2>Espace enseignant</h2>
+      <p class="admin-sub">Entre le mot de passe pour débloquer l'onglet <b>« Défis Fun »</b>,
+         même si l'élève n'a pas terminé tous les exercices.</p>
+      <div class="admin-field">
+        <span class="admin-field-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="5" y="11" width="14" height="9" rx="2"/>
+            <path d="M8 11V8a4 4 0 0 1 8 0v3"/>
+          </svg>
+        </span>
+        <input type="password" id="adminPass" placeholder="Mot de passe" autocomplete="off"
+               onkeydown="if(event.key==='Enter')adminUnlock()">
+      </div>
+      <button type="button" class="admin-btn" id="adminBtn" onclick="adminUnlock()">
+        <span class="admin-btn-shine"></span>
+        <span class="admin-btn-label">Débloquer les Défis Fun</span>
+      </button>
+      <div id="adminMsg" class="admin-msg"></div>
+      <div id="adminFails" class="admin-fails hidden"></div>
+    </div>
+  </div>
+</div>
 
-const observer = new IntersectionObserver(entries => {
-  entries.forEach(entry => {
-    if (entry.isIntersecting) {
-      links.forEach(l => l.classList.remove('active'));
-      const active = document.querySelector('.nav-link[href="#' + entry.target.id + '"]');
-      if (active) active.classList.add('active');
-    }
-  });
-}, { threshold: 0.3 });
+<script>var EXS = %EXERCISES_JSON%;</script>
+<script src="/static/app.js"></script>
+<script src="/static/hanoi.js"></script>
+<script src="/static/challenges.js"></script>
+<script src="/static/trophies.js"></script>
+<script src="/static/minigames.js"></script>
 
-sections.forEach(s => observer.observe(s));
-</script>
+<!-- ───────── Onglet « Défis Fun » ───────── -->
+
+
+<div id="panel-fun" class="tab-panel" style="overflow-y:auto;max-height:calc(100vh - 120px)">
+  <div class="fun-wrap">
+    <canvas id="funConfetti"></canvas>
+    <div class="fun-hero">
+      <h2><span class="fun-ico-lg"><svg viewBox="0 0 24 24" fill="none"><path d="M3 21l5.5-11 5.5 5.5z" fill="#e68c32"/><path d="M3 21l5.5-11 2.6 2.6z" fill="#d2c332"/><circle cx="15.5" cy="6" r="1.3" fill="#e04646"/><circle cx="19.5" cy="9.5" r="1.3" fill="#3c82d2"/><circle cx="18" cy="4" r="1.1" fill="#50b450"/><circle cx="21" cy="13.5" r="1.1" fill="#8c50c8"/><path d="M14 9.5l2.2-2.2M16.5 12.5l2.4-1M13.2 6.5l1.4-2.6" stroke="#d2c332" stroke-width="1.3" stroke-linecap="round"/></svg></span> Défis Fun — le Hanoï déchaîné</h2>
+      <p>Tu as terminé les 5 exercices, bravo ! Voici 5 défis bonus, plus durs et plus fun, jouables à la souris. Décroche les médailles 🥇🥈🥉 !</p>
+    </div>
+    <div class="fun-section-title">🏅 Mes trophées</div>
+    <div id="funScore" class="fun-score"></div>
+    <div class="fun-section-title">🗼 Défis Hanoï</div>
+    <div id="funCards" class="fun-cards"></div>
+    <div id="funPlay" class="fun-play" style="display:none">
+      <div class="fun-play-head">
+        <button type="button" class="hanoi-btn" onclick="funClose()">← Retour aux défis</button>
+        <span id="funTitle"></span>
+      </div>
+      <div class="fun-bar">
+        <span id="funGoal"></span>
+        <span id="funMoves">Coups : 0</span>
+        <span id="funTime">⏱ 0.0s</span>
+        <button type="button" class="hanoi-btn" onclick="funRestart()">↺ Recommencer</button>
+        <button type="button" class="hanoi-btn" onclick="funUndo()">↶ Annuler</button>
+      </div>
+      <div id="funBoard" class="hanoi-board fun-board"></div>
+      <div id="funMsg" class="hanoi-msg"></div>
+    </div>
+
+    <div class="fun-section-title">🎮 Mini-jeux bonus <span>(rien à voir avec Hanoï — juste pour s'amuser, avec le code Python expliqué)</span></div>
+    <div id="miniCards" class="fun-cards"></div>
+    <div id="miniPlay" class="mini-play" style="display:none">
+      <div class="fun-play-head">
+        <button type="button" class="hanoi-btn" onclick="miniClose()">← Retour</button>
+        <span id="miniTitle"></span>
+        <button type="button" class="hanoi-btn" id="miniCodeBtn" onclick="miniToggleCode()" style="margin-left:auto">📖 Voir le code Python</button>
+      </div>
+      <div id="miniArea" class="mini-area"></div>
+      <pre id="miniCode" class="mini-code" style="display:none"></pre>
+    </div>
+  </div>
+</div>
+
+<!-- ───────── Volet coulissant : Hanoï jouable ───────── -->
+
+
+<div id="hanoiDrawer" class="hanoi-drawer">
+  <button type="button" id="hanoiHandle" class="hanoi-handle" onclick="toggleHanoi()">🎮 Joue au Hanoï</button>
+  <canvas id="hanoiConfetti"></canvas>
+  <div class="hanoi-inner">
+    <div class="hanoi-head">
+      <h3>Tours de Hanoï</h3>
+      <p>Clique un poteau pour <b>prendre</b> l'anneau du sommet, puis un poteau valide (en vert) pour le <b>poser</b>. Reconstruis la tour sur un autre poteau !</p>
+    </div>
+    <div class="hanoi-bar">
+      <label>Anneaux :
+        <select id="hanoiCount" onchange="hanoiReset()">
+          <option>3</option><option selected>4</option><option>5</option><option>6</option>
+          <option>7</option><option>8</option><option>9</option><option>10</option>
+        </select>
+      </label>
+      <button type="button" class="hanoi-btn" id="hanoiSolveBtn" onclick="hanoiSolveToggle()">✨ Résoudre</button>
+      <button type="button" class="hanoi-btn" onclick="hanoiUndo()">↶ Annuler</button>
+      <button type="button" class="hanoi-btn" onclick="hanoiReset()">↺ Rejouer</button>
+    </div>
+    <div class="hanoi-stats">
+      <span id="hanoiMoves">Coups : 0</span>
+      <span id="hanoiTime">⏱ 0.0s</span>
+      <span id="hanoiBest">🏆 —</span>
+    </div>
+    <div id="hanoiBoard" class="hanoi-board"></div>
+    <div id="hanoiMsg" class="hanoi-msg"></div>
+  </div>
+</div>
+
 </body>
 </html>
-"""
-
