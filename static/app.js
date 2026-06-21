@@ -227,6 +227,9 @@ async function runTest(id) {
 
   if (d.ok && !passed[id]) {
     passed[id] = true;
+    // marque la carte comme réussie (accent vert + « pop » de la pastille)
+    const card = document.getElementById('card-' + id);
+    if (card) card.classList.add('passed');
     // marque la badge en vert
     const badge = document.getElementById('badge-' + id);
     if (badge) { badge.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7l3.5 3.5L12 3" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'; badge.style.background = 'var(--green)'; }
@@ -306,6 +309,91 @@ function triggerUnlockByKey(key) {
     if (ex.unlock_after === key) unlock(ex.id);
   });
 }
+
+// ── Espace enseignant : débloque les Défis Fun avec un mot de passe ──
+// Mot de passe « pseudo » (vérifié côté navigateur) — à changer au besoin.
+const ADMIN_PASSWORD = 'Imperium';
+
+function adminUnlock() {
+  const inp = document.getElementById('adminPass');
+  const msg = document.getElementById('adminMsg');
+  if (inp.value === ADMIN_PASSWORD) {
+    revealFunTab();                 // retire .hidden de l'onglet + mémorise dans localStorage
+    adminClearFails();              // efface le compteur d'erreurs (plus rien à signaler)
+    adminHideTab();                 // l'onglet Admin ne sert plus → on le cache
+    inp.value = '';
+    msg.className = 'admin-msg ok';
+    msg.innerHTML = '<span class="fun-ico-sm">' + SVG_PARTY + '</span> Défis Fun débloqués !';
+    switchTab('fun');
+  } else {
+    msg.className = 'admin-msg err';
+    msg.textContent = '❌ Mot de passe incorrect.';
+    adminRecordFail();              // garde une trace de la tentative ratée sur ce poste
+    // secousse de la carte
+    const card = document.getElementById('adminCard');
+    if (card) { card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake'); }
+    inp.focus(); inp.select();
+  }
+}
+
+// ── Indicateur de tentatives ratées (sur le poste de l'élève) ──
+function adminRecordFail() {
+  try {
+    const n = (parseInt(localStorage.getItem('hanoi_admin_fails'), 10) || 0) + 1;
+    localStorage.setItem('hanoi_admin_fails', n);
+    localStorage.setItem('hanoi_admin_last_fail', Date.now());
+  } catch (e) {}
+  adminRenderFails();
+}
+
+function adminRenderFails() {
+  let n = 0, last = 0;
+  try {
+    n = parseInt(localStorage.getItem('hanoi_admin_fails'), 10) || 0;
+    last = parseInt(localStorage.getItem('hanoi_admin_last_fail'), 10) || 0;
+  } catch (e) {}
+
+  // Carré rouge sur l'onglet Admin — masqué tant qu'aucune tentative ratée.
+  const badge = document.getElementById('adminBadge');
+  if (badge) {
+    badge.textContent = n;
+    badge.classList.toggle('hidden', n === 0);
+  }
+
+  // Avertissement dans la carte (visible dès la 1re tentative, sans réinitialisation possible)
+  const box = document.getElementById('adminFails');
+  if (box) {
+    if (n === 0) { box.classList.add('hidden'); box.innerHTML = ''; }
+    else {
+      box.classList.remove('hidden');
+      const when = last ? new Date(last).toLocaleString('fr-FR') : '';
+      box.innerHTML =
+        '⚠️ <b>' + n + ' tentative' + (n > 1 ? 's' : '') + ' incorrecte' + (n > 1 ? 's' : '') +
+        '</b> sur ce poste' + (when ? ' — dernière le ' + when : '');
+    }
+  }
+}
+
+// Efface toute trace de tentatives ratées (après un déblocage réussi).
+function adminClearFails() {
+  try {
+    localStorage.removeItem('hanoi_admin_fails');
+    localStorage.removeItem('hanoi_admin_last_fail');
+  } catch (e) {}
+  adminRenderFails();
+}
+
+// Cache l'onglet Admin (devenu inutile une fois les Défis Fun débloqués).
+function adminHideTab() {
+  const t = document.getElementById('tab-admin');
+  if (t) t.classList.add('hidden');
+}
+
+// Au chargement : affiche le compteur, et masque l'onglet si Fun déjà débloqué.
+document.addEventListener('DOMContentLoaded', () => {
+  adminRenderFails();
+  try { if (localStorage.getItem('hanoi_fun_unlocked') === '1') adminHideTab(); } catch (e) {}
+});
 
 // ── statut en haut ────────────────────────────────────────────
 function setStatus(type, txt) {
