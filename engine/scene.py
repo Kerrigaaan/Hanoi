@@ -29,6 +29,15 @@ MoveGenerator = Callable[[int, Dict[str, Pole]], Iterator[Tuple[str, str]]]
 
 FONT_SIZE = 32
 
+# Durée (en secondes) du déplacement animé d'un disque d'un poteau à l'autre.
+ANIM_DURATION = 0.32
+
+
+def _smoothstep(t: float) -> float:
+    """Interpolation douce (accélère puis ralentit) — rend le mouvement naturel."""
+    t = max(0.0, min(1.0, t))
+    return t * t * (3 - 2 * t)
+
 
 class HanoiScene:
     _is_move_valid:   IsMoveValid
@@ -59,6 +68,12 @@ class HanoiScene:
         self._stand_height   = stand_height
         self._num_disk       = num_disks
         self._camera         = Camera(x=0., y=0., zoom=20.)
+        # Animation de déplacement en cours (None = aucun disque en mouvement)
+        self._anim           = None
+        # Cache des fonds dégradés (un par couleur d'état) pour éviter de les recalculer
+        self._bg_cache       = {}
+        # Cache des disques déjà composés (dégradé + reflet + contour), par taille/couleur
+        self._disk_cache     = {}
         self._create_objects(num_disks)   # typo corrigée : _create_objetcs → _create_objects
         self._set_camera_y()
 
@@ -175,13 +190,18 @@ class HanoiScene:
     def _do_run(self):
         pygame.display.set_caption("Tours de Hanoï")           # titre de fenêtre
         screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-        font   = pygame.font.SysFont(None, FONT_SIZE)
+        font     = pygame.font.SysFont(None, FONT_SIZE)
+        font_msg = pygame.font.SysFont(None, FONT_SIZE + 8, bold=True)
+        clock    = pygame.time.Clock()
 
         optimal_num_plays = 2 ** self._num_disk - 1
         game = self._reset_game()
+        self._anim = None
 
         running = True
         while running:
+            dt = clock.tick(60) / 1000.0   # temps écoulé depuis la frame précédente
+
             for event in pygame.event.get():
 
                 if event.type == pygame.QUIT:
@@ -196,87 +216,271 @@ class HanoiScene:
                         running = False
                     if event.key == pygame.K_r:           # R = recommencer à tout moment
                         game = self._reset_game()
+                        self._anim = None
 
-                # --- Actions selon l'état courant ---
-                match game['state']:
-                    case 'error':
-                        pass  # rendu géré ci-dessous
-                    case 'playing':
-                        if (event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE
-                                or event.type == pygame.MOUSEBUTTONDOWN and event.button == 1):
-                            try:
-                                src, dst = next(game['iterator'])
-                                if self._is_move_valid(self._poles, src, dst):
-                                    self._poles[src].move_upper_disk(self._poles[dst])
-                                    game['num_plays'] += 1
-                                else:
-                                    # Mouvement invalide → état d'erreur (récupérable avec R)
-                                    game['state']            = 'wrong move'
-                                    game['background_color'] = Color(255, 179, 179)
-                            except StopIteration:
-                                # Le générateur est épuisé avant la fin → état d'erreur
-                                game['state']            = 'wrong move'
-                                game['background_color'] = Color(255, 179, 179)
+                # On ne joue un coup que si la partie est en cours ET qu'aucun
+                # disque n'est déjà en train de se déplacer (pour ne pas couper l'animation).
+                if (game['state'] == 'playing' and self._anim is None
+                        and (event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE
+                             or event.type == pygame.MOUSEBUTTONDOWN and event.button == 1)):
+                    self._start_next_move(game)
 
-                        # Victoire valide SEULEMENT si le nombre minimal de coups
-                        # a été joué — empêche un is_game_over() qui retourne True en
-                        # permanence de tricher
-                        min_moves = 2 ** self._num_disk - 1
-                        # En version stricte (ex. 4 et 5), la tour doit être sur le
-                        # poteau imposé (C). On n'accepte donc pas une victoire sur B,
-                        # même si is_game_over() de l'élève la considère comme finie.
-                        on_win_pole = (self._win_pole is None
-                                       or self._poles[self._win_pole].num_disks == self._num_disk)
-                        if (self._is_game_over(self._poles)
-                                and game['num_plays'] >= min_moves
-                                and on_win_pole):
-                            game['state']            = 'win'
-                            game['background_color'] = Color(179, 255, 179)
+            # --- Avance l'animation en cours ; à la fin du déplacement, teste la victoire ---
+            if self._anim is not None and self._advance_anim(dt):
+                self._anim = None
+                self._check_win(game, optimal_num_plays)
 
             # --- Rendu ---
-            screen.fill(game['background_color'])
+            self._draw_background(screen, game['background_color'])
             self._render_on(screen)
 
             w, h = screen.get_width(), screen.get_height()
             state = game['state']
 
             # Compteur de coups (coin supérieur gauche)
-            count_surf = font.render(
+            self._draw_panel_text(
+                screen, font,
                 f"Coups : {game['num_plays']}   Optimal : {optimal_num_plays}",
-                True, (50, 50, 50)
+                (50, 50, 50), topleft=(20, 20),
             )
-            screen.blit(count_surf, (20, 20))
 
             # Message central selon l'état
             if state == 'error':
                 self._show_error(screen, font, game.get('error_msg', 'Erreur inconnue.'))
             elif state == 'win':
-                msg = font.render(
-                    "Bravo ! Tu as gagné !   (appuie sur R pour rejouer)",
-                    True, (20, 110, 20)
+                self._draw_panel_text(
+                    screen, font_msg, "Bravo ! Tu as gagné !   (appuie sur R pour rejouer)",
+                    (20, 110, 20), center=(w // 2, 40), bg=(210, 255, 210, 220),
                 )
-                screen.blit(msg, (w // 2 - msg.get_width() // 2, 20))
             elif state == 'wrong move':
-                msg = font.render(
-                    "Mouvement impossible !   Appuie sur R pour recommencer.",
-                    True, (160, 30, 30)
+                self._draw_panel_text(
+                    screen, font_msg, "Mouvement impossible !   Appuie sur R pour recommencer.",
+                    (160, 30, 30), center=(w // 2, 40), bg=(255, 215, 215, 220),
                 )
-                screen.blit(msg, (w // 2 - msg.get_width() // 2, 20))
 
             # Aide en bas de l'écran
-            hint = font.render(
+            self._draw_panel_text(
+                screen, font,
                 "Espace / Clic : jouer   |   Molette : zoom   |   R : recommencer   |   Échap : quitter",
-                True, (110, 110, 110)
+                (90, 90, 90), center=(w // 2, h - 36),
             )
-            screen.blit(hint, (w // 2 - hint.get_width() // 2, h - 40))
 
             pygame.display.flip()
 
         return game['state']  # 'win', 'wrong move', 'error' ou 'playing' (Échap)
 
+    # -----------------------------------------------------------------
+    # Animation des déplacements de disques
+    # -----------------------------------------------------------------
+    def _start_next_move(self, game):
+        """Demande le coup suivant au générateur de l'élève et lance son animation."""
+        try:
+            src, dst = next(game['iterator'])
+        except StopIteration:
+            # Le générateur est épuisé avant la fin → état d'erreur
+            game['state']            = 'wrong move'
+            game['background_color'] = Color(255, 179, 179)
+            return
+
+        if not self._is_move_valid(self._poles, src, dst):
+            # Mouvement invalide → état d'erreur (récupérable avec R)
+            game['state']            = 'wrong move'
+            game['background_color'] = Color(255, 179, 179)
+            return
+
+        # On effectue le déplacement logique immédiatement (le modèle reste cohérent),
+        # puis on anime visuellement le disque de sa position de départ à son arrivée.
+        disk          = self._poles[src].upper_disk
+        start         = (disk.x_center, disk.y_bottom)
+        self._poles[src].move_upper_disk(self._poles[dst])
+        end           = (disk.x_center, disk.y_bottom)
+        game['num_plays'] += 1
+
+        # Hauteur de survol : au-dessus de la plus haute pile possible
+        lift_y = self._stand_height + (self._num_disk + 2) * self._disk_height
+
+        disk.x_center, disk.y_bottom = start   # on replace le disque au départ pour l'animer
+        self._anim = {'disk': disk, 'start': start, 'end': end, 'lift_y': lift_y, 't': 0.0}
+
+    def _advance_anim(self, dt: float) -> bool:
+        """Fait avancer l'animation d'un cran. Retourne True quand elle est terminée."""
+        a = self._anim
+        a['t'] += dt / ANIM_DURATION
+        t = a['t']
+        disk = a['disk']
+        (sx, sy), (ex, ey), ly = a['start'], a['end'], a['lift_y']
+
+        if t >= 1.0:
+            disk.x_center, disk.y_bottom = ex, ey
+            return True
+
+        if t < 0.3:                       # 1) le disque monte
+            f = _smoothstep(t / 0.3)
+            disk.x_center = sx
+            disk.y_bottom = sy + (ly - sy) * f
+        elif t < 0.7:                     # 2) il glisse horizontalement
+            f = _smoothstep((t - 0.3) / 0.4)
+            disk.x_center = sx + (ex - sx) * f
+            disk.y_bottom = ly
+        else:                             # 3) il descend sur le poteau d'arrivée
+            f = _smoothstep((t - 0.7) / 0.3)
+            disk.x_center = ex
+            disk.y_bottom = ly + (ey - ly) * f
+        return False
+
+    def _check_win(self, game, optimal_num_plays):
+        """Teste la victoire après un coup (les garde-fous anti-triche sont conservés)."""
+        if game['state'] != 'playing':
+            return
+        # Victoire valide SEULEMENT si le nombre minimal de coups a été joué —
+        # empêche un is_game_over() qui retourne True en permanence de tricher.
+        min_moves = 2 ** self._num_disk - 1
+        # En version stricte (ex. 4 et 5), la tour doit être sur le poteau imposé (C).
+        on_win_pole = (self._win_pole is None
+                       or self._poles[self._win_pole].num_disks == self._num_disk)
+        if (self._is_game_over(self._poles)
+                and game['num_plays'] >= min_moves
+                and on_win_pole):
+            game['state']            = 'win'
+            game['background_color'] = Color(179, 255, 179)
+
+    # -----------------------------------------------------------------
+    # Rendu amélioré (disques en pastilles, poteaux/socle arrondis, ombres)
+    # -----------------------------------------------------------------
     def _render_on(self, surface: Surface):
-        self._camera.render(surface, self._stand)
+        self._draw_rounded_object(surface, self._stand, radius_ratio=0.35, shadow=True)
+        # Ombres de contact posées sur le socle, sous chaque tour (profondeur)
         for pole in self._poles.values():
-            self._camera.render(surface, pole)
+            self._draw_contact_shadow(surface, pole)
+        for pole in self._poles.values():
+            self._draw_rounded_object(surface, pole, radius_ratio=0.5, shadow=False)
+        # Les disques sont dessinés après tous les poteaux : un disque en vol
+        # (animation) passe ainsi visuellement au-dessus des poteaux.
+        for pole in self._poles.values():
             for disk in pole._disks:
-                self._camera.render(surface, disk)
+                self._draw_disk(surface, disk)
+
+    def _draw_contact_shadow(self, surface, pole):
+        """Ellipse sombre translucide à la base d'un poteau, sur le socle."""
+        cam = self._camera
+        footprint = max((d.width for d in pole._disks), default=pole.width * 2)
+        cx = int((pole.x_center - cam.x) * cam.zoom) + surface.get_width() // 2
+        cy = int(-(self._stand_height - cam.y) * cam.zoom) + surface.get_height() // 2
+        ew = max(6, int(footprint * cam.zoom * 1.15))
+        eh = max(4, int(self._disk_height * cam.zoom * 0.7))
+        sh = pygame.Surface((ew, eh), pygame.SRCALPHA)
+        pygame.draw.ellipse(sh, (0, 0, 0, 60), (0, 0, ew, eh))
+        surface.blit(sh, (cx - ew // 2, cy - eh // 2))
+
+    def _obj_rect(self, surface: Surface, obj):
+        """Convertit un objet du monde en rectangle pixel (mêmes maths que la caméra)."""
+        cam = self._camera
+        px = int((obj.x_center - obj.width / 2 - cam.x) * cam.zoom) + surface.get_width() // 2
+        py = int(-(obj.y_bottom + obj.height - cam.y) * cam.zoom) + surface.get_height() // 2
+        return px, py, int(obj.width * cam.zoom), int(obj.height * cam.zoom)
+
+    @staticmethod
+    def _shade(color: Color, amount: int) -> Color:
+        """Éclaircit (amount > 0) ou assombrit (amount < 0) une couleur."""
+        return Color(
+            max(0, min(255, color.r + amount)),
+            max(0, min(255, color.g + amount)),
+            max(0, min(255, color.b + amount)),
+        )
+
+    def _draw_rounded_object(self, surface, obj, radius_ratio, shadow):
+        x, y, w, h = self._obj_rect(surface, obj)
+        if w <= 0 or h <= 0:
+            return
+        radius = max(2, int(min(w, h) * radius_ratio))
+        if shadow:
+            sh = pygame.Surface((w + 12, h + 12), pygame.SRCALPHA)
+            pygame.draw.rect(sh, (0, 0, 0, 60), (6, 8, w, h), border_radius=radius)
+            surface.blit(sh, (x - 6, y - 4))
+        pygame.draw.rect(surface, obj.color, (x, y, w, h), border_radius=radius)
+        # Léger reflet sur le dessus
+        pygame.draw.rect(surface, self._shade(obj.color, 28),
+                         (x + 2, y + 2, w - 4, max(2, h // 4)), border_radius=radius)
+
+    def _draw_disk(self, surface, disk):
+        x, y, w, h = self._obj_rect(surface, disk)
+        if w <= 0 or h <= 0:
+            return
+        radius = max(2, h // 2)   # forme de pastille / gélule
+        # Ombre portée (translucide)
+        sh = pygame.Surface((w + 12, h + 12), pygame.SRCALPHA)
+        pygame.draw.rect(sh, (0, 0, 0, 70), (6, 8, w, h), border_radius=radius)
+        surface.blit(sh, (x - 6, y - 4))
+        # Corps du disque (dégradé + reflet + contour, mis en cache)
+        surface.blit(self._disk_surface(w, h, disk.color), (x, y))
+
+    def _disk_surface(self, w: int, h: int, color: Color) -> Surface:
+        """Compose (et met en cache) un disque : dégradé vertical, reflet brillant, contour."""
+        key = (w, h, color.r, color.g, color.b)
+        cached = self._disk_cache.get(key)
+        if cached is not None:
+            return cached
+
+        radius = max(2, h // 2)
+        # Masque arrondi réutilisé pour découper dégradé et reflet à la forme de pastille
+        mask = pygame.Surface((w, h), pygame.SRCALPHA)
+        pygame.draw.rect(mask, (255, 255, 255, 255), (0, 0, w, h), border_radius=radius)
+
+        # Dégradé vertical clair → foncé (effet cylindre)
+        top, bot = self._shade(color, 50), self._shade(color, -40)
+        body = pygame.Surface((w, h), pygame.SRCALPHA)
+        for yy in range(h):
+            f = yy / max(1, h - 1)
+            body.fill(
+                (int(top.r + (bot.r - top.r) * f),
+                 int(top.g + (bot.g - top.g) * f),
+                 int(top.b + (bot.b - top.b) * f), 255),
+                (0, yy, w, 1),
+            )
+        body.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+
+        # Reflet brillant : ellipse blanche translucide sur la moitié haute
+        gloss = pygame.Surface((w, h), pygame.SRCALPHA)
+        pygame.draw.ellipse(gloss, (255, 255, 255, 75),
+                            (int(w * 0.10), int(h * 0.08), int(w * 0.80), int(h * 0.50)))
+        gloss.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+        body.blit(gloss, (0, 0))
+
+        # Contour plus foncé pour bien détacher les disques entre eux
+        pygame.draw.rect(body, self._shade(color, -65), (0, 0, w, h),
+                         width=max(1, h // 9), border_radius=radius)
+
+        self._disk_cache[key] = body
+        return body
+
+    def _draw_background(self, screen: Surface, color: Color):
+        """Remplit l'écran d'un léger dégradé vertical (plus doux qu'un aplat)."""
+        key = (screen.get_width(), screen.get_height(), color.r, color.g, color.b)
+        surf = self._bg_cache.get(key)
+        if surf is None:
+            w, h = screen.get_width(), screen.get_height()
+            surf = pygame.Surface((w, h))
+            top = self._shade(color, 22)
+            for yy in range(h):
+                f = yy / max(1, h - 1)
+                surf.fill(
+                    (int(top.r + (color.r - top.r) * f),
+                     int(top.g + (color.g - top.g) * f),
+                     int(top.b + (color.b - top.b) * f)),
+                    (0, yy, w, 1),
+                )
+            self._bg_cache[key] = surf
+        screen.blit(surf, (0, 0))
+
+    def _draw_panel_text(self, screen, font, text, color,
+                         center=None, topleft=None, pad=12, bg=(255, 255, 255, 170)):
+        """Affiche du texte dans un petit panneau arrondi translucide."""
+        txt = font.render(text, True, color)
+        tw, th = txt.get_size()
+        panel = pygame.Surface((tw + pad * 2, th + pad * 2), pygame.SRCALPHA)
+        pygame.draw.rect(panel, bg, panel.get_rect(), border_radius=14)
+        panel.blit(txt, (pad, pad))
+        if center is not None:
+            screen.blit(panel, panel.get_rect(center=center))
+        else:
+            screen.blit(panel, topleft)
