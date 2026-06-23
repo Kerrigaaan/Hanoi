@@ -38,7 +38,7 @@ source "$SCRIPT_DIR/.venv/bin/activate"
 ok "Venv activé  ($(python --version 2>&1))"
 
 # ─────────────────────────────────────────────────────────────────
-# 2. Installation de pygame via le proxy
+# 2. Installation de pygame (seule dépendance tierce)
 # ─────────────────────────────────────────────────────────────────
 banner "Installation des paquets"
 
@@ -51,22 +51,41 @@ pip install pygame -q && ok "pygame installé" || { warn "pygame — échec" ; E
 banner "Vérification des fichiers du projet"
 
 FILES=(
+    # Point d'entrée et utilitaires
     "tp_hanoi.py"
+    "util.py"
+    # Moteur du jeu (fenêtre pygame)
     "engine/__init__.py"
     "engine/scene.py"
-    "tests/__init__.py"
-    "tests/test_regressions.py"
-    "util.py"
+    # Logique serveur et exercices
     "tp/__init__.py"
+    "tp/server.py"
+    "tp/logic.py"
     "tp/exercises.py"
+    "tp/progress.py"
     "tp/assets.py"
     "tp/celebration.py"
-    "tp/logic.py"
     "tp/_test_subprocess.py"
-    "tp/server.py"
+    # Page web (template HTML)
     "tp/pages/__init__.py"
     "tp/pages/tp_page.py"
     "tp/pages/templates/tp_page.html"
+    # Ressources web servies via /static/
+    "static/style.css"
+    "static/style-home.css"
+    "static/style-docs.css"
+    "static/style-fun.css"
+    "static/style-polish.css"
+    "static/app.js"
+    "static/hanoi.js"
+    "static/challenges.js"
+    "static/minigames.js"
+    "static/trophies.js"
+    # Image de l'écran de félicitations
+    "assets/zerg.png"
+    # Tests de non-régression
+    "tests/__init__.py"
+    "tests/test_regressions.py"
 )
 
 for f in "${FILES[@]}"; do

@@ -73,6 +73,7 @@ hanoi/
 │   ├── minigames.js     # 15 mini-jeux bonus
 │   └── trophies.js      # Vitrine des trophées
 └── tp/
+    ├── __init__.py      # Package tp
     ├── exercises.py     # Liste des 5 exercices (données)
     ├── logic.py         # run_test(), launch_pygame()
     ├── _test_subprocess.py  # Exécuteur isolé d'un test (sous-process + timeout)
