@@ -159,7 +159,7 @@ main {
 
 /* Métriques PARTAGÉES entre le textarea (saisie) et la couche .hl (couleurs) :
    tout doit être identique au pixel près pour que le texte coloré soit aligné. */
-textarea, .hl {
+textarea, .hl, .hl-err {
   font-family: 'Cascadia Code','Fira Code','Courier New', monospace;
   font-size: 16px; line-height: 1.8;
   padding: 16px 18px;
@@ -202,6 +202,31 @@ textarea::selection { background: rgba(88,166,255,.30); }
 .t-str { color: #a5d6ff; }   /* chaînes */
 .t-com { color: #8b949e; font-style: italic; }   /* commentaires */
 .t-num { color: #79c0ff; }   /* nombres */
+
+/* Couche de soulignement d'erreur (façon IDE), au-dessus du texte et des couleurs.
+   Texte invisible : seul le trait ondulé rouge sous la ligne fautive est visible. */
+.hl-err {
+  position: absolute; inset: 0; z-index: 2;
+  margin: 0; pointer-events: none; overflow: hidden;
+  color: transparent; background: transparent;
+}
+.hl-err code { font: inherit; white-space: inherit; }
+.squig {
+  text-decoration: underline wavy #f85149;
+  text-decoration-skip-ink: none;
+  text-underline-offset: 3px;
+}
+/* Message d'erreur clair, en français, sous l'éditeur */
+.code-err {
+  margin: 8px 22px 0;
+  padding: 9px 13px;
+  border-radius: 8px;
+  background: rgba(248, 81, 73, .12);
+  border: 1px solid rgba(248, 81, 73, .45);
+  color: #ffb4ae;
+  font-size: 14px;
+  line-height: 1.45;
+}
 
 /* ── actions ── */
 .card-actions {

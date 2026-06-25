@@ -67,10 +67,12 @@ EXS.forEach((ex, idx) => {
     <div class="code-lbl">${ex.code_label || 'Ton code Python'}</div>
     <div class="code-wrap">
       <pre class="hl" id="hl${ex.id}" aria-hidden="true"><code></code></pre>
+      <pre class="hl-err" id="he${ex.id}" aria-hidden="true"><code></code></pre>
       <textarea id="c${ex.id}" spellcheck="false"
         oninput="hlUpdate('${ex.id}')" onscroll="hlSync('${ex.id}')"
         onkeydown="handleTab(event)">${ex.starter}</textarea>
     </div>
+    <div class="code-err hidden" id="ce${ex.id}" role="alert"></div>
     <div class="card-actions">
       ${hasTest
         ? `<button class="test-btn" id="tbtn-${ex.id}"
@@ -140,7 +142,60 @@ function hlUpdate(exId) {
 }
 function hlSync(exId) {
   const ta = document.getElementById('c' + exId), pre = document.getElementById('hl' + exId);
+  const preErr = document.getElementById('he' + exId);
   if (ta && pre) { pre.scrollTop = ta.scrollTop; pre.scrollLeft = ta.scrollLeft; }
+  if (ta && preErr) { preErr.scrollTop = ta.scrollTop; preErr.scrollLeft = ta.scrollLeft; }
+}
+
+// ── Vérification de syntaxe « en direct » (souligné rouge façon IDE) ─────────
+const _syntaxTimers = {};
+
+// Dessine un soulignement ondulé rouge sous la ligne fautive (couche transparente
+// alignée au pixel près sur le texte). errLine = 0 / null → efface le soulignement.
+function hlErrUpdate(exId, errLine) {
+  const layer = document.querySelector('#he' + exId + ' code');
+  if (!layer) return;
+  if (!errLine) { layer.innerHTML = ''; return; }
+  const lines = document.getElementById('c' + exId).value.split('\n');
+  let out = '';
+  for (let i = 0; i < lines.length; i++) {
+    const esc = hlEscape(lines[i]);
+    out += (i + 1 === errLine) ? '<span class="squig">' + (esc || ' ') + '</span>' : esc;
+    out += '\n';
+  }
+  layer.innerHTML = out;
+}
+
+// Affiche (ou efface) le message d'erreur clair sous l'éditeur + le soulignement.
+function showCodeError(exId, error) {
+  const box = document.getElementById('ce' + exId);
+  if (!error) {
+    if (box) { box.classList.add('hidden'); box.textContent = ''; }
+    hlErrUpdate(exId, 0);
+    return;
+  }
+  if (box) { box.classList.remove('hidden'); box.textContent = '✗ ' + error.msg; }
+  hlErrUpdate(exId, error.line);
+}
+
+async function checkSyntax(exId) {
+  const ta = document.getElementById('c' + exId);
+  if (!ta) return;
+  if (ta.value.trim() === '') { showCodeError(exId, null); return; }
+  let d;
+  try {
+    const res = await fetch('/api/check', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: ta.value })
+    });
+    d = await res.json();
+  } catch { return; }   // serveur injoignable : on ne dérange pas l'élève
+  showCodeError(exId, d.ok ? null : d.error);
+}
+
+function scheduleSyntaxCheck(exId) {
+  clearTimeout(_syntaxTimers[exId]);
+  _syntaxTimers[exId] = setTimeout(() => checkSyntax(exId), 450);
 }
 
 // applique l'auto-resize + restaure le code sauvegardé au chargement
@@ -150,9 +205,12 @@ document.addEventListener('DOMContentLoaded', () => {
     ta.value = loadCode(exId, ta.value);  // restaure si sauvegardé
     autoResize(ta);
     hlUpdate(exId);                        // colore le contenu initial
+    checkSyntax(exId);                     // vérifie la syntaxe du contenu initial
     ta.addEventListener('input', () => {
       autoResize(ta);
       saveCode(exId, ta.value);           // sauvegarde à chaque frappe
+      hlErrUpdate(exId, 0);               // retire le trait le temps de retaper
+      scheduleSyntaxCheck(exId);          // re-vérifie la syntaxe (anti-rebond)
     });
   });
 

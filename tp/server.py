@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 
 from tp.exercises import EXERCISES
 from tp.pages     import HTML
-from tp.logic     import run_test, launch_pygame
+from tp.logic     import run_test, launch_pygame, check_syntax
 from tp           import progress
 
 STATIC_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
@@ -103,7 +103,10 @@ class Handler(BaseHTTPRequestHandler):
         n    = int(self.headers.get("Content-Length", 0))
         data = json.loads(self.rfile.read(n))
         path = urlparse(self.path).path
-        if path == "/api/test":
+        if path == "/api/check":
+            # Vérification de syntaxe « en direct » pour l'éditeur (souligné rouge).
+            self._send_json(check_syntax(data.get("code", "")))
+        elif path == "/api/test":
             ok, msg = run_test(data["ex_id"], data["codes"])
             self._send_json({"ok": ok, "message": msg})
         elif path == "/api/launch":

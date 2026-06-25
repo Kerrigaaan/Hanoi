@@ -1,5 +1,5 @@
 # Logique Python : tests, assemblage du code élève, lancement pygame
-import os, sys, io, builtins, traceback, tempfile, subprocess, ast, textwrap, json
+import os, sys, io, builtins, traceback, tempfile, subprocess, ast, textwrap, json, keyword, difflib
 
 from tp.exercises   import EXERCISES
 from tp.assets      import _ZERG_B64
@@ -67,6 +67,129 @@ def run_test(ex_id, codes_by_id):
     except Exception:
         return False, "❌ Erreur inattendue lors du test."
     return bool(result.get("ok")), result.get("message", "")
+
+
+# ── Vérification de syntaxe « à la volée » pour l'éditeur ────────────────────
+def _fr_syntax_cause(msg: str) -> str:
+    """Traduit en français clair (pour des enfants) le message d'erreur Python."""
+    import re as _re
+    raw = msg or ""
+    low = raw.lower()
+
+    # « '(' was never closed », « '[' was never closed », etc.
+    m = _re.search(r"'(.)' was never closed", raw)
+    if m:
+        noms = {'(': "une parenthèse « ( »", '[': "un crochet « [ »",
+                '{': "une accolade « { »"}
+        return f"{noms.get(m.group(1), 'un symbole')} n'a jamais été fermé(e)"
+
+    table = [
+        ("expected ':'",                 "il manque un deux-points « : » en fin de ligne"),
+        ("expected an indented block",   "il manque un bloc indenté : après « : », la ligne suivante doit commencer par 4 espaces"),
+        ("unexpected indent",            "indentation inattendue : trop d'espaces au début de la ligne"),
+        ("unindent does not match",      "l'indentation ne correspond à aucun niveau précédent"),
+        ("inconsistent use of tabs",     "mélange de tabulations et d'espaces : utilise seulement des espaces"),
+        ("unterminated string",          "une chaîne de caractères n'est pas fermée : il manque un guillemet"),
+        ("eol while scanning string",    "une chaîne de caractères n'est pas fermée : il manque un guillemet"),
+        ("unexpected eof",               "le code s'arrête trop tôt : un bloc ou une parenthèse n'est pas terminé"),
+        ("eof in multi-line",            "une parenthèse ou une chaîne n'est jamais fermée"),
+        ("missing parentheses in call to 'print'", "il manque des parenthèses : écris print(...)"),
+        ("invalid character",            "un caractère invalide s'est glissé dans le code (copier-coller ?)"),
+        ("cannot assign to",             "on ne peut pas affecter ici (« = » au lieu de « == » ?)"),
+        ("invalid syntax",               "syntaxe invalide : vérifie la ponctuation (« : », parenthèses, guillemets, virgules)"),
+    ]
+    for key, fr in table:
+        if key in low:
+            return fr
+    return "syntaxe invalide : vérifie la ponctuation (« : », parenthèses, guillemets, virgules)"
+
+
+# Fonctions du TP qu'un exercice peut appeler alors qu'elles sont écrites dans un
+# AUTRE exercice (fusionnées seulement au lancement). On ne doit donc pas les
+# signaler comme « inconnues » dans l'éditeur.
+_TP_NAMES = {"is_move_valid", "is_game_over", "play", "play_rec"}
+
+
+def _collect_defined_names(tree: ast.AST) -> set:
+    """Tous les noms « définis » par le code : params, variables affectées,
+    fonctions, classes, imports, cibles de boucles/compréhensions, etc."""
+    defined = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            defined.add(node.name)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            a = node.args
+            for arg in (*a.posonlyargs, *a.args, *a.kwonlyargs):
+                defined.add(arg.arg)
+            if a.vararg: defined.add(a.vararg.arg)
+            if a.kwarg:  defined.add(a.kwarg.arg)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            for n in node.names:
+                defined.add((n.asname or n.name).split(".")[0])
+        elif isinstance(node, (ast.Global, ast.Nonlocal)):
+            defined.update(node.names)
+        elif isinstance(node, ast.ExceptHandler) and node.name:
+            defined.add(node.name)
+        elif isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+            # affectations, cibles de for/with/compréhensions, walrus…
+            defined.add(node.id)
+    return defined
+
+
+def _check_unknown_names(tree: ast.AST):
+    """Repère un nom utilisé mais jamais défini (faute de frappe sur un mot-clé
+    ou un nom), façon VSCode. Retourne {"line","col","msg"} ou None."""
+    # En présence d'un import étoilé (from x import *), on ne peut pas connaître
+    # les noms importés : on s'abstient pour ne pas signaler à tort.
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and any(n.name == "*" for n in node.names):
+            return None
+
+    defined  = _collect_defined_names(tree)
+    builtin  = set(dir(builtins))
+    allowed  = builtin | set(keyword.kwlist) | _TP_NAMES | defined | {"__name__", "__doc__"}
+    vocab    = builtin | set(keyword.kwlist) | _TP_NAMES | defined
+
+    # On signale le PREMIER nom inconnu dans l'ordre du code.
+    unknown = [n for n in ast.walk(tree)
+               if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load)
+               and n.id not in allowed]
+    if not unknown:
+        return None
+    n = min(unknown, key=lambda x: (x.lineno, x.col_offset))
+    line, col = n.lineno, n.col_offset + 1
+    sugg = difflib.get_close_matches(n.id, vocab, n=1, cutoff=0.8)
+    if sugg:
+        msg = (f"Ligne {line} — « {n.id} » n'est pas reconnu. "
+               f"Voulais-tu dire « {sugg[0]} » ?")
+    else:
+        msg = f"Ligne {line} — « {n.id} » n'est pas reconnu (nom ou mot-clé mal écrit ?)."
+    return {"line": line, "col": col, "msg": msg}
+
+
+def check_syntax(code: str) -> dict:
+    """
+    Vérifie le code de l'éditeur SANS l'exécuter et renvoie une erreur claire :
+      1. erreur de syntaxe / d'indentation (via le parseur Python) ;
+      2. sinon, nom ou mot-clé inconnu (faute de frappe, façon VSCode).
+    Retourne {"ok": bool, "error": {"line", "col", "msg"} | None}.
+    """
+    try:
+        tree = ast.parse(code or "", "<editeur>", "exec")
+    except SyntaxError as e:          # IndentationError / TabError en héritent
+        line  = e.lineno or 1
+        col   = e.offset or 1
+        cause = _fr_syntax_cause(e.msg)
+        prefix = "indentation" if isinstance(e, IndentationError) else "erreur d'écriture"
+        return {"ok": False,
+                "error": {"line": line, "col": col,
+                          "msg": f"Ligne {line} — {prefix} : {cause}."}}
+    except Exception:
+        # Tout autre souci au parsing : on ne dérange pas l'élève.
+        return {"ok": True, "error": None}
+
+    err = _check_unknown_names(tree)
+    return {"ok": err is None, "error": err}
 
 
 import ast, textwrap

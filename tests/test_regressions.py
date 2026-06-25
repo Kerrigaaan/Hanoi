@@ -271,6 +271,47 @@ def test_launch_keeps_student_module_constants(monkeypatch):
 
 
 # ──────────────────────────────────────────────────────────────────────────
+# Vérification de syntaxe « en direct » de l'éditeur (façon VSCode)
+# ──────────────────────────────────────────────────────────────────────────
+def test_check_syntax_accepts_valid_code():
+    assert L.check_syntax("def play(n, poles):\n    yield ('A', 'C')\n")["ok"] is True
+
+
+def test_check_syntax_reports_missing_colon():
+    r = L.check_syntax("def play(n, poles)\n    yield 1\n")
+    assert r["ok"] is False and "deux-points" in r["error"]["msg"]
+
+
+def test_check_syntax_flags_misspelled_keyword():
+    r = L.check_syntax("def play(n, poles):\n    yeild ('A', 'C')\n")
+    assert r["ok"] is False
+    assert r["error"]["line"] == 2
+    assert "yeild" in r["error"]["msg"] and "yield" in r["error"]["msg"]   # suggestion
+
+
+def test_check_syntax_flags_unknown_name():
+    r = L.check_syntax("def play(n, poles):\n    yield (m, 'C')\n")
+    assert r["ok"] is False and "m" in r["error"]["msg"]
+
+
+def test_check_syntax_allows_cross_exercise_functions():
+    # play (ex.3) peut appeler is_move_valid (écrite en ex.2) sans être signalée.
+    code = ("def play(n, poles):\n"
+            "    if is_move_valid(poles, 'A', 'C'):\n"
+            "        yield ('A', 'C')\n")
+    assert L.check_syntax(code)["ok"] is True
+
+
+def test_check_syntax_no_false_positive_on_imports_and_comprehensions():
+    code = ("from itertools import cycle\n"
+            "def play(n, poles):\n"
+            "    coups = [(s, 'C') for s in ['A', 'B']]\n"
+            "    for s, d in cycle(coups):\n"
+            "        yield (s, d)\n")
+    assert L.check_syntax(code)["ok"] is True
+
+
+# ──────────────────────────────────────────────────────────────────────────
 # Messages d'erreur clairs (un à la fois)
 # ──────────────────────────────────────────────────────────────────────────
 def test_syntax_error_message():
