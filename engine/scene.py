@@ -3,7 +3,7 @@ from typing import Dict, Callable, Tuple, Optional, Iterator
 import pygame
 from pygame import Color, Surface
 
-from engine import Camera, Pole, Stand, Disk
+from engine import Camera, Pole, Stand, Disk, IllegalMoveError
 
 MIN_DISK_WIDTH: float = 2.
 MAX_DISK_WIDTH: float = 5.
@@ -228,7 +228,7 @@ class HanoiScene:
             # --- Avance l'animation en cours ; à la fin du déplacement, teste la victoire ---
             if self._anim is not None and self._advance_anim(dt):
                 self._anim = None
-                self._check_win(game, optimal_num_plays)
+                self._check_win(game)
 
             # --- Rendu ---
             self._draw_background(screen, game['background_color'])
@@ -272,28 +272,60 @@ class HanoiScene:
     # -----------------------------------------------------------------
     # Animation des déplacements de disques
     # -----------------------------------------------------------------
+    def _fail_move(self, game):
+        """Bascule en état « mouvement impossible » (récupérable avec R)."""
+        game['state']            = 'wrong move'
+        game['background_color'] = Color(255, 179, 179)
+
+    def _set_error(self, game, func_name, exc):
+        """Affiche dans la fenêtre l'erreur levée par une fonction de l'élève,
+        au lieu de laisser remonter un traceback interne au moteur."""
+        game['state']            = 'error'
+        game['background_color'] = Color(40, 0, 0)
+        game['error_msg']        = (f"Ta fonction {func_name} a provoqué une erreur : "
+                                    f"{type(exc).__name__} — {exc}")
+
     def _start_next_move(self, game):
         """Demande le coup suivant au générateur de l'élève et lance son animation."""
         try:
             src, dst = next(game['iterator'])
         except StopIteration:
             # Le générateur est épuisé avant la fin → état d'erreur
-            game['state']            = 'wrong move'
-            game['background_color'] = Color(255, 179, 179)
+            self._fail_move(game)
+            return
+        except Exception as e:
+            # play() a planté (ou n'a pas renvoyé un couple de poteaux).
+            self._set_error(game, "play()", e)
             return
 
-        if not self._is_move_valid(self._poles, src, dst):
-            # Mouvement invalide → état d'erreur (récupérable avec R)
-            game['state']            = 'wrong move'
-            game['background_color'] = Color(255, 179, 179)
+        # Poteau inexistant (ex. yield ('A', 'Z')) → mouvement impossible, pas un crash.
+        if src not in self._poles or dst not in self._poles:
+            self._fail_move(game)
             return
 
-        # On effectue le déplacement logique immédiatement (le modèle reste cohérent),
-        # puis on anime visuellement le disque de sa position de départ à son arrivée.
-        disk          = self._poles[src].upper_disk
-        start         = (disk.x_center, disk.y_bottom)
-        self._poles[src].move_upper_disk(self._poles[dst])
-        end           = (disk.x_center, disk.y_bottom)
+        try:
+            valid = self._is_move_valid(self._poles, src, dst)
+        except Exception as e:
+            self._set_error(game, "is_move_valid()", e)
+            return
+        if not valid:
+            self._fail_move(game)
+            return
+
+        # Garde-fou : même si l'is_move_valid() de l'élève accepte un coup illégal
+        # (poteau vide, gros disque sur petit), le moteur le refuse. On rattrape
+        # alors IllegalMoveError pour afficher un message clair au lieu d'un crash.
+        disk = self._poles[src].upper_disk
+        if disk is None:
+            self._fail_move(game)
+            return
+        start = (disk.x_center, disk.y_bottom)
+        try:
+            self._poles[src].move_upper_disk(self._poles[dst])
+        except IllegalMoveError:
+            self._fail_move(game)
+            return
+        end = (disk.x_center, disk.y_bottom)
         game['num_plays'] += 1
 
         # Hauteur de survol : au-dessus de la plus haute pile possible
@@ -328,19 +360,30 @@ class HanoiScene:
             disk.y_bottom = ly + (ey - ly) * f
         return False
 
-    def _check_win(self, game, optimal_num_plays):
+    def _check_win(self, game):
         """Teste la victoire après un coup (les garde-fous anti-triche sont conservés)."""
         if game['state'] != 'playing':
             return
-        # Victoire valide SEULEMENT si le nombre minimal de coups a été joué —
-        # empêche un is_game_over() qui retourne True en permanence de tricher.
-        min_moves = 2 ** self._num_disk - 1
-        # En version stricte (ex. 4 et 5), la tour doit être sur le poteau imposé (C).
-        on_win_pole = (self._win_pole is None
-                       or self._poles[self._win_pole].num_disks == self._num_disk)
-        if (self._is_game_over(self._poles)
-                and game['num_plays'] >= min_moves
-                and on_win_pole):
+        # Vérification OBJECTIVE de la victoire, indépendante du is_game_over() de
+        # l'élève : la tour complète doit réellement être reconstruite sur un poteau.
+        #   • version stricte (ex. 4 et 5) : sur le poteau imposé (C) ;
+        #   • version libre (ex. 3)        : sur B ou sur C.
+        # Sans ça, un is_game_over() qui renvoie toujours True suffisait à « gagner »
+        # après n'importe quels coups légaux.
+        if self._win_pole is not None:
+            target_poles = (self._win_pole,)
+        else:
+            target_poles = ('B', 'C')
+        tower_complete = any(self._poles[p].num_disks == self._num_disk
+                             for p in target_poles)
+        # On conserve l'exigence du is_game_over() de l'élève (c'est l'objet des
+        # exercices 1 et 4) : il doit reconnaître la fin de partie.
+        try:
+            over = self._is_game_over(self._poles)
+        except Exception as e:
+            self._set_error(game, "is_game_over()", e)
+            return
+        if over and tower_complete:
             game['state']            = 'win'
             game['background_color'] = Color(179, 255, 179)
 

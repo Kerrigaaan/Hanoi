@@ -41,6 +41,7 @@ IS_GAME_OVER_STRICT = (
 )
 IS_MOVE_VALID = 'def is_move_valid(poles, s, d):\n    return True\n'
 PLAY = 'def play(num_disks, poles):\n    yield ("A", "C")\n'
+# Vraie solution récursive : play_rec s'appelle elle-même.
 PLAY_REC = "def play_rec(num_disks, poles, start='A', middle='B', end='C'):\n    yield (start, end)\n"
 
 
@@ -110,6 +111,87 @@ def test_ex5_uses_play_rec_and_win_pole(monkeypatch):
     script = _capture_launch_script(codes, "ex5", monkeypatch)
     assert "_generator = play_rec if EX_ID == 'ex5' else play" in script
     assert "win_pole=('C' if EX_ID in ('ex4', 'ex5') else None)" in script
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Logique de victoire du jeu (sans fenêtre) — anti-triche et robustesse
+# ──────────────────────────────────────────────────────────────────────────
+def _make_scene(iv, go, play, win_pole):
+    from engine.scene import HanoiScene
+    return HanoiScene(iv, go, play, num_disks=3, win_pole=win_pole)
+
+
+def _drive_scene(sc):
+    """Joue tous les coups du générateur (sans rendu) et renvoie l'état final."""
+    g = sc._reset_game()
+    sc._anim = None
+    guard = 0
+    while g["state"] == "playing" and guard < 500:
+        guard += 1
+        sc._start_next_move(g)
+        if g["state"] != "playing" or sc._anim is None:
+            break
+        while sc._anim is not None:
+            if sc._advance_anim(1.0):
+                sc._anim = None
+                sc._check_win(g)
+    return g
+
+
+_IV_OK = (lambda p, s, d: p[s].num_disks > 0
+          and (p[d].num_disks == 0 or p[d].upper_disk.width > p[s].upper_disk.width))
+
+
+def test_ex3_rejects_always_true_is_game_over():
+    # is_game_over toujours vrai + 8 coups légaux mais inutiles : ne doit PAS gagner,
+    # car la tour n'est jamais réellement reconstruite sur B ou C.
+    def pingpong(n, p):
+        for _ in range(4):
+            yield ("A", "B"); yield ("B", "A")
+    g = _drive_scene(_make_scene(_IV_OK, lambda p: True, pingpong, None))
+    assert g["state"] != "win"
+
+
+def test_ex3_wins_when_tower_actually_rebuilt():
+    # Solution correcte qui finit sur C : victoire acceptée en mode libre (win_pole=None).
+    def solve(n, p):
+        def rec(n, s, m, e):
+            if n == 0: return
+            yield from rec(n - 1, s, e, m); yield (s, e); yield from rec(n - 1, m, s, e)
+        yield from rec(n, "A", "B", "C")
+    g = _drive_scene(_make_scene(_IV_OK, lambda p: p["C"].num_disks == 3, solve, None))
+    assert g["state"] == "win"
+
+
+def test_illegal_move_is_handled_without_crash():
+    # is_move_valid toujours vrai + coup illégal : message « mouvement impossible »,
+    # pas de IllegalMoveError qui remonte.
+    def play_illegal(n, p):
+        yield ("A", "B"); yield ("A", "B")   # le 2e pose un gros disque sur un petit
+    g = _drive_scene(_make_scene(lambda p, s, d: True, lambda p: False, play_illegal, None))
+    assert g["state"] == "wrong move"
+
+
+def test_student_is_game_over_exception_shows_error():
+    def go_crash(p):
+        return p["D"].num_disks == 3          # KeyError 'D'
+    g = _drive_scene(_make_scene(_IV_OK, go_crash, lambda n, p: iter([("A", "C")]), None))
+    assert g["state"] == "error" and "is_game_over" in g["error_msg"]
+
+
+def test_student_is_move_valid_exception_shows_error():
+    def iv_crash(p, s, d):
+        return p["Z"].num_disks > 0           # KeyError 'Z'
+    g = _drive_scene(_make_scene(iv_crash, lambda p: False, lambda n, p: iter([("A", "C")]), None))
+    assert g["state"] == "error" and "is_move_valid" in g["error_msg"]
+
+
+def test_student_play_exception_shows_error():
+    def play_crash(n, p):
+        yield ("A", "C")
+        raise ValueError("boom")
+    g = _drive_scene(_make_scene(_IV_OK, lambda p: False, play_crash, None))
+    assert g["state"] == "error" and "play()" in g["error_msg"]
 
 
 # ──────────────────────────────────────────────────────────────────────────
