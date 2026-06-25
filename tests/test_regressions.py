@@ -42,7 +42,19 @@ IS_GAME_OVER_STRICT = (
 IS_MOVE_VALID = 'def is_move_valid(poles, s, d):\n    return True\n'
 PLAY = 'def play(num_disks, poles):\n    yield ("A", "C")\n'
 # Vraie solution récursive : play_rec s'appelle elle-même.
-PLAY_REC = "def play_rec(num_disks, poles, start='A', middle='B', end='C'):\n    yield (start, end)\n"
+PLAY_REC = (
+    "def play_rec(num_disks, poles, start='A', middle='B', end='C'):\n"
+    "    if num_disks == 0:\n"
+    "        return\n"
+    "    yield from play_rec(num_disks - 1, poles, start, end, middle)\n"
+    "    yield (start, end)\n"
+    "    yield from play_rec(num_disks - 1, poles, middle, start, end)\n"
+)
+# Solution itérative déguisée : aucun appel à play_rec → doit être refusée pour l'ex. 5.
+PLAY_REC_ITERATIVE = (
+    "def play_rec(num_disks, poles, start='A', middle='B', end='C'):\n"
+    "    yield (start, end)\n"
+)
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -111,6 +123,30 @@ def test_ex5_uses_play_rec_and_win_pole(monkeypatch):
     script = _capture_launch_script(codes, "ex5", monkeypatch)
     assert "_generator = play_rec if EX_ID == 'ex5' else play" in script
     assert "win_pole=('C' if EX_ID in ('ex4', 'ex5') else None)" in script
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Bug : l'exo 5 acceptait une solution itérative (play_rec sans récursion)
+# ──────────────────────────────────────────────────────────────────────────
+def test_is_recursive_detection():
+    assert L._is_recursive(PLAY_REC, "play_rec") is True
+    assert L._is_recursive(PLAY_REC_ITERATIVE, "play_rec") is False
+
+
+def test_ex5_refuses_iterative_play_rec():
+    codes = {"ex1": IS_GAME_OVER_STRICT, "ex2": IS_MOVE_VALID, "ex3": PLAY,
+             "ex4": IS_GAME_OVER_STRICT + "\n" + PLAY, "ex5": PLAY_REC_ITERATIVE}
+    ok, msg, game = L.launch_pygame(codes, ex_id="ex5")
+    assert ok is False and game is False
+    assert "récursive" in msg
+
+
+def test_ex5_accepts_recursive_play_rec(monkeypatch):
+    codes = {"ex1": IS_GAME_OVER_STRICT, "ex2": IS_MOVE_VALID, "ex3": PLAY,
+             "ex4": IS_GAME_OVER_STRICT + "\n" + PLAY, "ex5": PLAY_REC}
+    # Ne doit pas être refusé : le script de lancement est bien généré.
+    script = _capture_launch_script(codes, "ex5", monkeypatch)
+    assert "play_rec" in script
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -192,6 +228,46 @@ def test_student_play_exception_shows_error():
         raise ValueError("boom")
     g = _drive_scene(_make_scene(_IV_OK, lambda p: False, play_crash, None))
     assert g["state"] == "error" and "play()" in g["error_msg"]
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Bug : l'assemblage du code cassait sur les fonctions imbriquées / classes,
+# et perdait les constantes de niveau module de l'élève
+# ──────────────────────────────────────────────────────────────────────────
+def test_extract_functions_ignores_nested_and_methods():
+    nested = ("def play(num_disks, poles):\n"
+              "    def helper(s, d):\n"
+              "        return (s, d)\n"
+              "    yield helper('A', 'C')\n")
+    method = ("def play(num_disks, poles):\n"
+              "    class Aide:\n"
+              "        def m(self):\n"
+              "            return 1\n"
+              "    yield ('A', 'C')\n")
+    assert set(L._extract_functions(nested)) == {"play"}
+    assert set(L._extract_functions(method)) == {"play"}
+
+
+def test_launch_with_class_method_is_valid_python(monkeypatch):
+    play = ("def play(num_disks, poles):\n"
+            "    class Aide:\n"
+            "        def m(self):\n"
+            "            return 1\n"
+            "    yield ('A', 'C')\n")
+    codes = {"ex1": IS_GAME_OVER_LENIENT, "ex2": IS_MOVE_VALID, "ex3": play}
+    script = _capture_launch_script(codes, "ex3", monkeypatch)
+    compile(script, "<launch>", "exec")       # ne doit plus lever IndentationError
+
+
+def test_launch_keeps_student_module_constants(monkeypatch):
+    play = ("SEQUENCE = [('A', 'C')]\n"
+            "def play(num_disks, poles):\n"
+            "    for m in SEQUENCE:\n"
+            "        yield m\n")
+    assert L._extract_assignments(play)        # l'affectation est bien repérée
+    codes = {"ex1": IS_GAME_OVER_LENIENT, "ex2": IS_MOVE_VALID, "ex3": play}
+    script = _capture_launch_script(codes, "ex3", monkeypatch)
+    assert "SEQUENCE = [('A', 'C')]" in script
 
 
 # ──────────────────────────────────────────────────────────────────────────

@@ -73,28 +73,49 @@ import ast, textwrap
 
 def _extract_functions(code: str) -> dict:
     """
-    Parse le code et retourne un dict {nom_fonction: source_complète}.
-    Ignore les fonctions dont le corps est uniquement 'pass'.
+    Parse le code et retourne un dict {nom_fonction: source_complète} pour les
+    fonctions définies AU NIVEAU MODULE uniquement.
+
+    On parcourt `tree.body` (et non `ast.walk`) afin d'ignorer les fonctions
+    imbriquées et les méthodes de classe : les ré-émettre au niveau module
+    produirait du code mal indenté (IndentationError au lancement).
+    Les fonctions dont le corps est uniquement 'pass' (stubs non remplis) sont
+    également ignorées.
     """
     funcs = {}
+    dedented = textwrap.dedent(code)
+    try:
+        tree = ast.parse(dedented)
+    except SyntaxError:
+        return funcs
+    lines = dedented.splitlines()
+    for node in tree.body:
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        if all(isinstance(n, ast.Pass) for n in node.body):
+            continue  # stub → ignoré
+        funcs[node.name] = "\n".join(lines[node.lineno - 1:node.end_lineno])
+    return funcs
+
+
+def _is_recursive(code: str, func_name: str) -> bool:
+    """
+    True si la fonction `func_name` s'appelle elle-même quelque part dans son corps.
+    Sert à imposer une vraie solution récursive (ex. 5) : une suite de `yield`
+    « à la main » (itérative) ne contient aucun appel à play_rec → refusée.
+    """
     try:
         tree = ast.parse(textwrap.dedent(code))
     except SyntaxError:
-        return funcs
-    lines = code.splitlines()
+        return False
     for node in ast.walk(tree):
-        if not isinstance(node, ast.FunctionDef):
-            continue
-        # Corps = uniquement Pass ?
-        body = [n for n in node.body if not isinstance(n, ast.Expr)]
-        only_pass = all(isinstance(n, ast.Pass) for n in node.body)
-        if only_pass:
-            continue  # stub → ignoré
-        # Extrait les lignes source de la fonction
-        start = node.lineno - 1
-        end   = node.end_lineno
-        funcs[node.name] = "\n".join(lines[start:end])
-    return funcs
+        if isinstance(node, ast.FunctionDef) and node.name == func_name:
+            for sub in ast.walk(node):
+                if (isinstance(sub, ast.Call)
+                        and isinstance(sub.func, ast.Name)
+                        and sub.func.id == func_name):
+                    return True
+    return False
 
 
 def _starter_function_names(code: str) -> list:
@@ -123,6 +144,26 @@ def _extract_imports(code: str) -> list:
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             imports.append("\n".join(lines[node.lineno - 1:node.end_lineno]))
     return imports
+
+
+def _extract_assignments(code: str) -> list:
+    """
+    Retourne les lignes source des affectations de niveau module (constantes,
+    tables…). Sans ça, un élève qui factorise par ex. `SEQUENCE = [...]` et s'en
+    sert dans play() déclencherait un NameError au lancement (la variable serait
+    perdue, seules les fonctions et les imports étant conservés).
+    """
+    assigns = []
+    dedented = textwrap.dedent(code)
+    try:
+        tree = ast.parse(dedented)
+    except SyntaxError:
+        return assigns
+    lines = dedented.splitlines()
+    for node in tree.body:   # uniquement le niveau module
+        if isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+            assigns.append("\n".join(lines[node.lineno - 1:node.end_lineno]))
+    return assigns
 
 
 
@@ -155,6 +196,17 @@ def launch_pygame(codes_by_id, ex_id=''):
                     f"Complète ton code avant de lancer le jeu.",
                     False)
 
+    # L'exercice 5 doit être résolu de façon RÉCURSIVE : play_rec() doit s'appeler
+    # elle-même. Une solution qui se contente d'enchaîner des yield (itérative, ou
+    # codée en dur) n'utilise pas la récursion et n'est donc pas acceptée ici.
+    if ex_id == "ex5" and not _is_recursive(codes_by_id.get("ex5", ""), "play_rec"):
+        return (False,
+                "L'exercice 5 doit être résolu de façon récursive : ta fonction "
+                "play_rec() doit s'appeler elle-même avec « yield from play_rec(...) ». "
+                "Une solution itérative (enchaîner des yield à la main) n'est pas "
+                "acceptée pour cet exercice.",
+                False)
+
     all_ids = [ex["id"] for ex in EXERCISES]
     # On ne fusionne que les exercices JUSQU'À celui qu'on lance (inclus).
     # Sinon, lancer l'exo 3 utiliserait le is_game_over strict de l'exo 4, qui ne
@@ -163,6 +215,7 @@ def launch_pygame(codes_by_id, ex_id=''):
         all_ids = all_ids[:all_ids.index(ex_id) + 1]
     merged  = {}   # nom_fonction → source
     imports = []   # imports de l'élève (dédupliqués), à conserver
+    assigns = []   # constantes/variables de niveau module de l'élève, à conserver
 
     for eid in all_ids:
         code = codes_by_id.get(eid, "").strip()
@@ -171,10 +224,13 @@ def launch_pygame(codes_by_id, ex_id=''):
         for imp in _extract_imports(code):
             if imp not in imports:
                 imports.append(imp)
+        for asg in _extract_assignments(code):
+            if asg not in assigns:
+                assigns.append(asg)
         for fname, fsrc in _extract_functions(code).items():
             merged[fname] = fsrc   # écrase seulement si non-stub
 
-    stu_code = "\n\n".join(imports + list(merged.values()))
+    stu_code = "\n\n".join(imports + assigns + list(merged.values()))
 
     script = f"""
 import os
