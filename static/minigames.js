@@ -20,6 +20,28 @@ const MG_ICONS = {
   mines: '<svg viewBox="0 0 24 24" fill="none" stroke="#e04646" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="5" fill="#e04646" stroke="none"/><path d="M12 3v3M12 20v1M3 13h3M18 13h3M6 7l2 2M18 7l-2 2"/></svg>'
 };
 
+// ═══════════ Barème des médailles par mini-jeu ═══════════
+// by:'high' → plus c'est grand mieux c'est ; by:'low' → plus c'est petit mieux c'est.
+// Seuils or / argent / bronze, et libellé affiché (« Record : … »).
+const MG_SCORE = {
+  guess:      { by:'low',  gold:5,   silver:8,   bronze:12,  label:'essais' },
+  rps:        { by:'high', gold:5,   silver:3,   bronze:1,   label:'série' },
+  ttt:        { by:'high', gold:3,   silver:2,   bronze:1,   label:'',
+                names:['', 'Facile battu', 'Moyen battu', 'Imbattable battu !'] },
+  hangman:    { by:'high', gold:5,   silver:3,   bronze:1,   label:'vies restantes' },
+  fizzbuzz:   { by:'high', gold:15,  silver:8,   bronze:3,   label:'série' },
+  times:      { by:'high', gold:15,  silver:8,   bronze:3,   label:'série' },
+  simon:      { by:'high', gold:8,   silver:5,   bronze:2,   label:'niveau' },
+  reflex:     { by:'low',  gold:250, silver:350, bronze:550, label:'ms' },
+  memory:     { by:'low',  gold:8,   silver:12,  bronze:20,  label:'coups' },
+  quiz:       { by:'high', gold:6,   silver:4,   bronze:2,   label:'/ 6' },
+  mastermind: { by:'low',  gold:4,   silver:6,   bronze:10,  label:'essais' },
+  anagram:    { by:'high', gold:6,   silver:3,   bronze:1,   label:'mots' },
+  snake:      { by:'high', gold:20,  silver:10,  bronze:3,   label:'score' },
+  g2048:      { by:'high', gold:2048,silver:512, bronze:128, label:'meilleure tuile' },
+  mines:      { by:'low',  gold:30,  silver:60,  bronze:120, label:'s' }
+};
+
 const MINI_GAMES = [
   { id:'guess', icon:MG_ICONS.guess, title:'Devine le nombre', init: mgGuess,
     desc:'L’ordinateur choisit un nombre entre 1 et 100. À toi de le trouver avec des indices plus grand / plus petit !',
@@ -290,6 +312,7 @@ print("Mines voisines de (0,0) :", voisines(0, 0))` }
 ];
 
 let miniCur = null, miniCleanup = null;
+let mgAnagramStreak = 0;   // série d'anagrammes réussies d'affilée (survit au changement de mot)
 
 function miniRenderCards() {
   const wrap = document.getElementById('miniCards');
@@ -299,8 +322,20 @@ function miniRenderCards() {
     const card = document.createElement('div');
     card.className = 'fun-card';
     card.onclick = () => miniStart(g.id);
+    // Pastille de score : médaille + record, ou « Essayé », ou « ▶ Jouer »
+    const m = (typeof funMiniMedal === 'function') ? funMiniMedal(g.id) : null;
+    const cfg = (typeof funMiniCfg === 'function') ? funMiniCfg(g.id) : null;
+    const best = (typeof funMiniBest === 'function') ? funMiniBest(g.id) : null;
+    const rec = (best !== null && cfg) ? funFmtScore(cfg, best) : '';
+    let medal, cls = 'medal';
+    if (m) { medal = (typeof MEDAL_EMOJI !== 'undefined' ? MEDAL_EMOJI[m] : '🏅') + ' Record : ' + rec; cls += ' m-' + m; }
+    else if (rec) medal = '▶ Rejouer · record : ' + rec;
+    else medal = '▶ Jouer';
+    const goals = (typeof funMedalGoals === 'function') ? funMedalGoals(g.id) : '';
     card.innerHTML = '<div class="mg-icon">' + g.icon + '</div><h3>' + g.title +
-      '</h3><p>' + g.desc + '</p><div class="medal">▶ Jouer</div>';
+      '</h3><p>' + g.desc + '</p>' +
+      (goals ? '<div class="mg-goals">' + goals + '</div>' : '') +
+      '<div class="' + cls + '">' + medal + '</div>';
     wrap.appendChild(card);
   });
 }
@@ -314,6 +349,9 @@ function miniStart(id) {
   code.style.display = 'none'; code.textContent = miniCur.code;
   document.getElementById('miniCodeBtn').textContent = '📖 Voir le code Python';
   document.getElementById('miniPlay').style.display = 'block';
+  const goals = document.getElementById('miniGoals');                        // objectifs médailles
+  if (goals) goals.innerHTML = '<span class="mini-goals-lbl">Objectifs médailles</span>' +
+    '<span class="mini-goals-chips">' + funMedalGoals(id) + '</span>';
   funMiniPlayed(id);                                                         // marque le jeu comme essayé
   miniCleanup = miniCur.init(document.getElementById('miniArea')) || null;   // init peut renvoyer un nettoyage
   document.getElementById('miniPlay').scrollIntoView({ behavior:'smooth', block:'start' });
@@ -350,7 +388,7 @@ function mgGuess(area) {
     else if (v > secret) msg.textContent = '🔽 C’est plus petit ! (essai ' + tries + ')';
     else {
       msg.textContent = '🎉 Bravo ! Trouvé en ' + tries + ' essais.';
-      funMiniWon('guess');
+      funMiniScore('guess', tries);
       popConfetti(document.getElementById('funConfetti'), document.querySelector('#panel-fun .fun-wrap'));
     }
     input.value = ''; input.focus();
@@ -447,8 +485,8 @@ function mgHangman(area) {
     });
     const m = area.querySelector('#mgHmsg');
     if (won) {
-      m.textContent = '🎉 Gagné ! Le mot était ' + word;
-      funMiniWon('hangman');
+      m.textContent = '🎉 Gagné ! Le mot était ' + word + ' (' + lives + ' vies restantes)';
+      funMiniScore('hangman', lives);
       popConfetti(document.getElementById('funConfetti'), document.querySelector('#panel-fun .fun-wrap'));
     } else if (lost) {
       m.textContent = '💀 Perdu ! Le mot était ' + word;
@@ -471,7 +509,7 @@ function mgFizzBuzz(area) {
   const num = area.querySelector('#fbNum');
   function next() { n = Math.floor(Math.random() * 30) + 1; num.textContent = n; }
   area.querySelectorAll('[data-o]').forEach(b => b.addEventListener('click', () => {
-    if (b.dataset.o === correct(n)) { score++; msg.textContent = '✅ Correct !'; }
+    if (b.dataset.o === correct(n)) { score++; msg.textContent = '✅ Correct !'; funMiniScore('fizzbuzz', score); }
     else { msg.textContent = '❌ Raté ! ' + n + ' → ' + correct(n); score = 0; }
     sc.textContent = 'Série : ' + score;
     next();
@@ -491,7 +529,7 @@ function mgTimes(area) {
   function nextQ() { a = Math.floor(Math.random() * 8) + 2; b = Math.floor(Math.random() * 8) + 2; q.textContent = a + ' × ' + b + ' = ?'; }
   function go() {
     const v = parseInt(inp.value, 10);
-    if (v === a * b) { score++; msg.textContent = '✅ Bravo !'; }
+    if (v === a * b) { score++; msg.textContent = '✅ Bravo !'; funMiniScore('times', score); }
     else { msg.textContent = '❌ Non, ' + a + ' × ' + b + ' = ' + (a * b); score = 0; }
     sc.textContent = 'Bonnes réponses d’affilée : ' + score;
     inp.value = ''; inp.focus(); nextQ();
@@ -524,7 +562,7 @@ function mgSimon(area) {
     await flash(i);
     if (i !== seq[pos]) { accepting = false; msg.textContent = '💥 Raté ! Niveau atteint : ' + (level - 1) + '.'; return; }
     pos++;
-    if (pos === seq.length) { accepting = false; addStep(); setTimeout(playSeq, 550); }
+    if (pos === seq.length) { accepting = false; funMiniScore('simon', level); addStep(); setTimeout(playSeq, 550); }
   }
   area.querySelector('#simonStart').addEventListener('click', () => { seq = []; level = 0; addStep(); playSeq(); });
 }
@@ -545,6 +583,7 @@ function mgReflex(area) {
     } else if (state === 'go') {
       const ms = Math.round(performance.now() - t0); state = 'done'; box.style.background = '#1f6feb'; box.textContent = ms + ' ms';
       msg.textContent = ms < 250 ? '⚡ Réflexes de félin !' : (ms < 400 ? 'Pas mal !' : 'On se réveille 😴');
+      funMiniScore('reflex', ms);
     }
   });
 }
@@ -574,7 +613,7 @@ function mgMemory(area) {
       moves++;
       if (deck[flipped[0]] === deck[flipped[1]]) {
         matched = matched.concat(flipped); flipped = []; draw();
-        if (matched.length === deck.length) { msg.textContent = '🎉 Gagné en ' + moves + ' coups !'; funBoom(); funMiniWon('memory'); }
+        if (matched.length === deck.length) { msg.textContent = '🎉 Gagné en ' + moves + ' coups !'; funBoom(); funMiniScore('memory', moves); }
       } else { lock = true; setTimeout(() => { flipped = []; lock = false; draw(); }, 700); }
     }
   }
@@ -597,7 +636,7 @@ function mgQuiz(area) {
       area.innerHTML = '<div class="mg-msg" style="font-size:20px">Score final : ' + score + ' / ' + Q.length + '</div><button class="hanoi-btn" id="quizAgain" style="margin-top:10px">↺ Recommencer</button>';
       area.querySelector('#quizAgain').addEventListener('click', () => { idx = 0; score = 0; render(); });
       if (score === Q.length) funBoom();
-      funMiniWon('quiz');
+      funMiniScore('quiz', score);
       return;
     }
     const cur = Q[idx];
@@ -653,7 +692,7 @@ function mgMastermind(area) {
     const t = document.createElement('span'); t.className = 'mg-msg'; t.style.marginLeft = '10px';
     t.textContent = '● bien placés : ' + fb[0] + '   ○ mal placés : ' + fb[1]; row.appendChild(t);
     hist.appendChild(row);
-    if (fb[0] === N) { over = true; msg.textContent = '🎉 Code trouvé en ' + rows + ' essais !'; funBoom(); funMiniWon('mastermind'); }
+    if (fb[0] === N) { over = true; msg.textContent = '🎉 Code trouvé en ' + rows + ' essais !'; funBoom(); funMiniScore('mastermind', rows); }
     else if (rows >= 10) {
       over = true; msg.textContent = '💀 Perdu ! Le code était :';
       const r = document.createElement('div'); r.className = 'mg-row'; r.style.gap = '6px';
@@ -677,8 +716,11 @@ function mgAnagram(area) {
     '<button class="hanoi-btn" id="anNew" style="margin-top:6px">↻ Autre mot</button>';
   const inp = area.querySelector('#anIn'), msg = area.querySelector('#anMsg');
   function check() {
-    if (inp.value.trim().toUpperCase() === word) { msg.textContent = '🎉 Bravo, c’était ' + word + ' !'; funBoom(); funMiniWon('anagram'); }
-    else { msg.textContent = '❌ Pas encore… essaie encore.'; }
+    if (inp.value.trim().toUpperCase() === word) {
+      mgAnagramStreak++;
+      msg.textContent = '🎉 Bravo, c’était ' + word + ' ! (série : ' + mgAnagramStreak + ') — clique « Autre mot »';
+      funBoom(); funMiniScore('anagram', mgAnagramStreak);
+    } else { mgAnagramStreak = 0; msg.textContent = '❌ Pas encore… essaie encore.'; }
   }
   area.querySelector('#anOk').addEventListener('click', check);
   inp.addEventListener('keydown', e => { if (e.key === 'Enter') check(); });
@@ -711,10 +753,10 @@ function mgSnake(area) {
     dir = nextDir;
     const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
     if (head.x < 0 || head.x >= N || head.y < 0 || head.y >= N || snake.some(s => s.x === head.x && s.y === head.y)) {
-      dead = true; msg.textContent = '💀 Perdu ! Score : ' + (snake.length - 1) + ' — Espace pour rejouer'; return;
+      dead = true; msg.textContent = '💀 Perdu ! Score : ' + (snake.length - 1) + ' — Espace pour rejouer'; funMiniScore('snake', snake.length - 1); return;
     }
     snake.unshift(head);
-    if (head.x === apple.x && head.y === apple.y) { apple = spawn(); msg.textContent = 'Score : ' + (snake.length - 1); }
+    if (head.x === apple.x && head.y === apple.y) { apple = spawn(); msg.textContent = 'Score : ' + (snake.length - 1); funMiniScore('snake', snake.length - 1); }
     else snake.pop();
     draw();
   }
@@ -761,7 +803,10 @@ function mg2048(area) {
     if (JSON.stringify(g) !== JSON.stringify(grid)) { grid = g; add(); draw(); check(); }
   }
   function check() {
-    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) if (grid[r][c] === 2048) { msg.textContent = '🎉 2048 atteint, bravo !'; funBoom(); funMiniWon('g2048'); return; }
+    let maxTile = 0;
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) if (grid[r][c] > maxTile) maxTile = grid[r][c];
+    funMiniScore('g2048', maxTile);
+    if (maxTile >= 2048) { msg.textContent = '🎉 2048 atteint, bravo !'; funBoom(); return; }
     let can = false;
     for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) { if (!grid[r][c]) can = true; if (c < 3 && grid[r][c] === grid[r][c + 1]) can = true; if (r < 3 && grid[r][c] === grid[r + 1][c]) can = true; }
     if (!can) msg.textContent = 'Plus aucun coup possible. (Rejouer)';
@@ -776,14 +821,14 @@ function mg2048(area) {
 // ── Jeu : Démineur ──
 function mgMines(area) {
   const N = 8, M = 10;
-  let mines, revealed, flagged, over;
+  let mines, revealed, flagged, over, startTime;
   area.innerHTML =
     '<div id="mnGrid" style="display:grid;grid-template-columns:repeat(8,34px);gap:3px"></div>' +
     '<div id="mnMsg" class="mg-msg">Clic = révéler · clic droit = drapeau.</div>' +
     '<button class="hanoi-btn" id="mnReset" style="margin-top:10px">↺ Rejouer</button>';
   const gridEl = area.querySelector('#mnGrid'), msg = area.querySelector('#mnMsg');
   const NUM_COL = ['', '#58a6ff', '#50b450', '#e68c32', '#e04646', '#d2c332', '#8c50c8', '#fff', '#fff'];
-  function reset() { mines = new Set(); while (mines.size < M) mines.add(Math.floor(Math.random() * N * N)); revealed = new Set(); flagged = new Set(); over = false; msg.className = 'mg-msg'; msg.textContent = 'Clic = révéler · clic droit = drapeau.'; draw(); }
+  function reset() { mines = new Set(); while (mines.size < M) mines.add(Math.floor(Math.random() * N * N)); revealed = new Set(); flagged = new Set(); over = false; startTime = Date.now(); msg.className = 'mg-msg'; msg.textContent = 'Clic = révéler · clic droit = drapeau.'; draw(); }
   function neighbors(i) { const x = i % N, y = Math.floor(i / N), out = []; for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { if (!dx && !dy) continue; const nx = x + dx, ny = y + dy; if (nx >= 0 && nx < N && ny >= 0 && ny < N) out.push(ny * N + nx); } return out; }
   function nb(i) { return neighbors(i).filter(j => mines.has(j)).length; }
   function reveal(i) { if (over || revealed.has(i) || flagged.has(i)) return; revealed.add(i); if (mines.has(i)) { over = true; return; } if (nb(i) === 0) neighbors(i).forEach(reveal); }
@@ -800,7 +845,7 @@ function mgMines(area) {
         if (over || flagged.has(i)) return;
         reveal(i);
         if (mines.has(i)) { msg.className = 'mg-msg bad'; msg.textContent = '💥 Boum ! Perdu.'; draw(true); return; }
-        if (revealed.size === N * N - M) { over = true; msg.className = 'mg-msg win'; msg.textContent = '🎉 Gagné ! Cases sûres trouvées.'; funBoom(); funMiniWon('mines'); }
+        if (revealed.size === N * N - M) { over = true; const secs = Math.round((Date.now() - startTime) / 1000); msg.className = 'mg-msg win'; msg.textContent = '🎉 Gagné en ' + secs + ' s !'; funBoom(); funMiniScore('mines', secs); }
         draw();
       });
       c.addEventListener('contextmenu', e => { e.preventDefault(); if (over || revealed.has(i)) return; flagged.has(i) ? flagged.delete(i) : flagged.add(i); draw(); });

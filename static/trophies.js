@@ -15,12 +15,64 @@ function funMedal(cfg, moves, secs) {
   return moves <= cfg.par ? 'gold' : (moves <= Math.ceil(cfg.par * 1.3) ? 'silver' : 'bronze');
 }
 
-// ── Suivi des mini-jeux (joué / gagné) pour le tableau de scores ──
+// ── Suivi des mini-jeux : « essayé » + meilleur score → médaille ──
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+
 function funMiniPlayed(id) { try { localStorage.setItem('hanoi_mp_' + id, '1'); } catch (e) {} funRenderScore(); }
 
-function funMiniWon(id) { try { localStorage.setItem('hanoi_mw_' + id, '1'); } catch (e) {} funRenderScore(); }
+// Config de score d'un mini-jeu (objet MG_SCORE défini dans minigames.js)
+function funMiniCfg(id) { return (typeof MG_SCORE !== 'undefined' && MG_SCORE[id]) || null; }
 
-function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+// Meilleur score enregistré (nombre) ou null
+function funMiniBest(id) { const v = lsGet('hanoi_ms_' + id); return v === null ? null : Number(v); }
+
+// Enregistre un résultat : garde le MEILLEUR selon la direction (haut/bas) du jeu
+function funMiniScore(id, value) {
+  const cfg = funMiniCfg(id);
+  try {
+    const cur = funMiniBest(id);
+    let best = value;
+    if (cur !== null && cfg) best = cfg.by === 'low' ? Math.min(cur, value) : Math.max(cur, value);
+    localStorage.setItem('hanoi_ms_' + id, String(best));
+    localStorage.setItem('hanoi_mp_' + id, '1');   // a forcément été joué
+  } catch (e) {}
+  funRenderScore();
+  if (typeof miniRenderCards === 'function') miniRenderCards();
+}
+
+// Médaille obtenue ('gold'|'silver'|'bronze') ou null selon le meilleur score
+function funMiniMedal(id) {
+  const cfg = funMiniCfg(id); if (!cfg) return null;
+  const b = funMiniBest(id); if (b === null) return null;
+  if (cfg.by === 'low') return b <= cfg.gold ? 'gold' : b <= cfg.silver ? 'silver' : b <= cfg.bronze ? 'bronze' : null;
+  return b >= cfg.gold ? 'gold' : b >= cfg.silver ? 'silver' : b >= cfg.bronze ? 'bronze' : null;
+}
+
+// Objectifs médailles d'un jeu, rendus en pastilles colorées (or/argent/bronze).
+function funMedalGoals(id) {
+  const cfg = funMiniCfg(id); if (!cfg) return '';
+  const E = (typeof MEDAL_EMOJI !== 'undefined') ? MEDAL_EMOJI : { gold: '🥇', silver: '🥈', bronze: '🥉' };
+  const chip = (cls, emoji, txt) => '<span class="goal-chip ' + cls + '">' + emoji + ' ' + txt + '</span>';
+  if (cfg.names) {
+    const clean = s => s.replace(' battu !', '').replace(' battu', '');
+    return chip('g', E.gold, clean(cfg.names[3])) + chip('s', E.silver, clean(cfg.names[2])) +
+           chip('b', E.bronze, clean(cfg.names[1]));
+  }
+  const op = cfg.by === 'low' ? '≤' : '≥';
+  const unit = cfg.label ? '<span class="goal-unit">' + cfg.label + '</span>' : '';
+  return chip('g', E.gold, op + cfg.gold) + chip('s', E.silver, op + cfg.silver) +
+         chip('b', E.bronze, op + cfg.bronze) + unit;
+}
+
+// Affichage lisible d'un score (ex. « 7 essais », « 240 ms », « Imbattable »)
+function funFmtScore(cfg, v) {
+  if (!cfg) return String(v);
+  if (cfg.names) return cfg.names[v] || ('niveau ' + v);
+  return v + ' ' + cfg.label;
+}
+
+// Compat : ancien appel funMiniWon(id) → score « réussite » minimal
+function funMiniWon(id) { funMiniScore(id, funMiniCfg(id) && funMiniCfg(id).by === 'low' ? (funMiniCfg(id).bronze) : (funMiniCfg(id) ? funMiniCfg(id).bronze : 1)); }
 
 // ── Vitrine des trophées : anneau de progression, rang, stats, grille ──
 // Cible (remplace l'emoji 🎯) — réutilisée pour le rang Novice et le poteau-objectif
@@ -74,9 +126,16 @@ function funRenderScore() {
 
   let won = 0, played = 0;
   const miTrophies = MINI_GAMES.map(g => {
-    const w = lsGet('hanoi_mw_' + g.id), p = lsGet('hanoi_mp_' + g.id);
-    if (w) { won++; earned++; points += 1; return funTroph(g.icon, g.title, 'earned', '🏆', 'm-won', 'Gagné !'); }
-    if (p) { played++; return funTroph(g.icon, g.title, 'tried', '✓', '', 'Essayé'); }
+    const m = funMiniMedal(g.id), cfg = funMiniCfg(g.id), best = funMiniBest(g.id);
+    const rec = (best !== null && cfg) ? funFmtScore(cfg, best) : '';
+    if (m) {
+      won++; earned++;
+      if (m === 'gold')   { golds++;   points += 3; }
+      if (m === 'silver') { silvers++; points += 2; }
+      if (m === 'bronze') { bronzes++; points += 1; }
+      return funTroph(g.icon, g.title, 'earned', MEDAL_EMOJI[m], 'm-' + m, 'Record : ' + rec);
+    }
+    if (lsGet('hanoi_mp_' + g.id)) { played++; return funTroph(g.icon, g.title, 'tried', '✓', '', rec ? 'Record : ' + rec : 'Essayé'); }
     return funTroph(g.icon, g.title, 'locked', '🔒', '', 'Pas encore joué');
   }).join('');
 
