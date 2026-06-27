@@ -398,37 +398,77 @@ function mgGuess(area) {
   input.focus();
 }
 
-// ── Jeu : Pierre-Feuille-Ciseaux ──
+// ── Jeu : Pierre-Feuille-Ciseaux (IA qui apprend tes habitudes) ──
 function mgRPS(area) {
-  let win = 0, lose = 0;
+  let win = 0, lose = 0, streak = 0, best = 0;
   const choices = [['pierre', '🪨'], ['feuille', '📄'], ['ciseaux', '✂️']];
+  const hist = [];   // historique des coups du joueur
   area.innerHTML =
     '<div class="mg-row">' +
     choices.map((c, i) => '<button class="hanoi-btn" data-i="' + i + '">' + c[1] + ' ' + c[0] + '</button>').join('') +
-    '</div><div id="mgRpsMsg" class="mg-msg">Choisis ton coup !</div>' +
-    '<div id="mgRpsScore" class="mg-msg">Score — Toi 0 / Ordi 0</div>';
+    '</div><div id="mgRpsMsg" class="mg-msg">L’ordi observe tes coups et tente de te contrer. Fais la plus longue série !</div>' +
+    '<div id="mgRpsScore" class="mg-msg">Toi 0 / Ordi 0 · série 0 (record 0)</div>';
   const msg = area.querySelector('#mgRpsMsg'), sc = area.querySelector('#mgRpsScore');
+  // Prédit le prochain coup du joueur (transition depuis le dernier coup, sinon fréquence)
+  function predict() {
+    if (hist.length < 3 || Math.random() < 0.18) return Math.floor(Math.random() * 3);
+    const last = hist[hist.length - 1], trans = [0, 0, 0], freq = [0, 0, 0];
+    for (let k = 0; k < hist.length; k++) { freq[hist[k]]++; if (k > 0 && hist[k - 1] === last) trans[hist[k]]++; }
+    const pool = (trans[0] + trans[1] + trans[2]) > 0 ? trans : freq;
+    let p = 0; for (let i = 1; i < 3; i++) if (pool[i] > pool[p]) p = i;
+    return p;
+  }
   area.querySelectorAll('[data-i]').forEach(b => b.addEventListener('click', () => {
-    const me = parseInt(b.dataset.i, 10), ai = Math.floor(Math.random() * 3);
+    const me = parseInt(b.dataset.i, 10);
+    const ai = (predict() + 1) % 3;          // joue le coup qui bat la prédiction
     let r;
-    if (me === ai) r = 'Égalité !';
-    else if ((me === 0 && ai === 2) || (me === 1 && ai === 0) || (me === 2 && ai === 1)) { r = 'Gagné ! 🎉'; win++; }
-    else { r = 'Perdu… 😅'; lose++; }
+    if (me === ai) { r = 'Égalité !'; streak = 0; }
+    else if ((me + 2) % 3 === ai) { r = 'Gagné ! 🎉'; win++; streak++; if (streak > best) best = streak; funMiniScore('rps', best); }
+    else { r = 'Perdu… 😅'; lose++; streak = 0; }
+    hist.push(me);
     msg.textContent = 'Toi ' + choices[me][1] + '  vs  ' + choices[ai][1] + ' Ordi  →  ' + r;
-    sc.textContent = 'Score — Toi ' + win + ' / Ordi ' + lose;
+    sc.textContent = 'Toi ' + win + ' / Ordi ' + lose + ' · série ' + streak + ' (record ' + best + ')';
   }));
 }
 
-// ── Jeu : Morpion (vs IA aléatoire) ──
+// ── Jeu : Morpion (vs IA réglable : Facile / Moyen / Imbattable par minimax) ──
 function mgTTT(area) {
-  let board = Array(9).fill(''), over = false;
+  const LEVELS = [['facile', 'Facile'], ['moyen', 'Moyen'], ['imbattable', 'Imbattable']];
+  const LVALUE = { facile: 1, moyen: 2, imbattable: 3 };
+  const labelOf = l => ({ facile: 'Facile', moyen: 'Moyen', imbattable: 'Imbattable' }[l]);
+  let board = Array(9).fill(''), over = false, level = 'moyen';
   area.innerHTML =
+    '<div class="mg-row" id="tttLvl">' +
+      LEVELS.map(l => '<button class="hanoi-btn" data-l="' + l[0] + '">' + l[1] + '</button>').join('') +
+    '</div>' +
     '<div id="mgTTT" class="mg-ttt"></div>' +
     '<div id="mgTTTmsg" class="mg-msg">À toi (❌). Clique une case.</div>' +
     '<button class="hanoi-btn" id="mgTTTreset" style="margin-top:10px">↺ Rejouer</button>';
   const grid = area.querySelector('#mgTTT'), msg = area.querySelector('#mgTTTmsg');
   const L = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
   const wins = (b, p) => L.some(l => l.every(i => b[i] === p));
+  const full = b => b.every(x => x);
+  const free = () => board.map((v, i) => v ? -1 : i).filter(i => i >= 0);
+  // Minimax : ⭕ (l'ordi) maximise, ❌ (le joueur) minimise. Jeu parfait.
+  function minimax(b, player) {
+    if (wins(b, '⭕')) return { score: 1 };
+    if (wins(b, '❌')) return { score: -1 };
+    if (full(b)) return { score: 0 };
+    let bestMove = -1, bestScore = player === '⭕' ? -2 : 2;
+    for (let i = 0; i < 9; i++) if (!b[i]) {
+      b[i] = player;
+      const s = minimax(b, player === '⭕' ? '❌' : '⭕').score;
+      b[i] = '';
+      if (player === '⭕' ? s > bestScore : s < bestScore) { bestScore = s; bestMove = i; }
+    }
+    return { score: bestScore, move: bestMove };
+  }
+  function aiMove() {
+    const f = free();
+    if (level === 'facile') return f[Math.floor(Math.random() * f.length)];          // hasard
+    if (level === 'moyen' && Math.random() < 0.45) return f[Math.floor(Math.random() * f.length)]; // erreurs
+    return minimax(board.slice(), '⭕').move;                                          // parfait
+  }
   function draw() {
     grid.innerHTML = '';
     board.forEach((v, i) => {
@@ -441,19 +481,23 @@ function mgTTT(area) {
   function play(i) {
     if (over || board[i]) return;
     board[i] = '❌';
-    if (wins(board, '❌')) { msg.textContent = '🎉 Tu as gagné !'; over = true; funMiniWon('ttt'); draw(); return; }
-    if (board.every(x => x)) { msg.textContent = 'Match nul !'; over = true; draw(); return; }
-    const free = board.map((v, j) => v ? -1 : j).filter(j => j >= 0);
-    board[free[Math.floor(Math.random() * free.length)]] = '⭕';
+    if (wins(board, '❌')) { msg.textContent = '🎉 Tu as gagné (' + labelOf(level) + ') !'; over = true; funMiniScore('ttt', LVALUE[level]); draw(); return; }
+    if (full(board)) { msg.textContent = 'Match nul !'; over = true; draw(); return; }
+    const mv = aiMove(); if (mv >= 0) board[mv] = '⭕';
     if (wins(board, '⭕')) { msg.textContent = 'L’ordi gagne… 😅'; over = true; }
-    else if (board.every(x => x)) msg.textContent = 'Match nul !';
+    else if (full(board)) msg.textContent = 'Match nul !';
     draw();
   }
-  area.querySelector('#mgTTTreset').addEventListener('click', () => {
-    board = Array(9).fill(''); over = false;
-    msg.textContent = 'À toi (❌). Clique une case.'; draw();
-  });
-  draw();
+  function resetGame() { board = Array(9).fill(''); over = false; msg.textContent = 'À toi (❌) — niveau ' + labelOf(level) + '.'; draw(); }
+  function setLevel(l) {
+    level = l;
+    area.querySelectorAll('#tttLvl [data-l]').forEach(b =>
+      b.style.boxShadow = b.dataset.l === l ? '0 0 0 2px #58a6ff inset' : '');
+    resetGame();
+  }
+  area.querySelectorAll('#tttLvl [data-l]').forEach(b => b.addEventListener('click', () => setLevel(b.dataset.l)));
+  area.querySelector('#mgTTTreset').addEventListener('click', resetGame);
+  setLevel('moyen');
 }
 
 // ── Jeu : Le Pendu ──
